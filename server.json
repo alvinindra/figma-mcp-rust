@@ -1,17 +1,17 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.alvinindra/figma-mcp-rust",
-  "description": "Figma MCP server with full read/write access via plugin — no API token, no rate limits. 73 tools, written in Rust. Port of vkhanhqui/figma-mcp-go.",
+  "description": "Figma MCP server in Rust — plugin bridge, no API token, no rate limits, 73 tools.",
   "repository": {
     "url": "https://github.com/alvinindra/figma-mcp-rust",
     "source": "github"
   },
-  "version": "0.1.2",
+  "version": "0.1.3",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@alvinindra/figma-mcp-rust",
-      "version": "0.1.2",
+      "version": "0.1.3",
       "transport": {
         "type": "stdio"
       }
