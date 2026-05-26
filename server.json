@@ -6,12 +6,12 @@
     "url": "https://github.com/alvinindra/figma-mcp-rust",
     "source": "github"
   },
-  "version": "0.1.1",
+  "version": "0.1.2",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@alvinindra/figma-mcp-rust",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "transport": {
         "type": "stdio"
       }
