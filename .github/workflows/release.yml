@@ -136,22 +136,18 @@ jobs:
           npm version "$VERSION" --no-git-tag-version --allow-same-version
           npm publish --access public
 
-      # MCP Registry publish disabled while the repo is private. Re-enable by
-      # uncommenting the three steps below once `gh repo edit --visibility public`
-      # has been run — github-oidc auth requires a public source repo.
-      #
-      # - name: Set version in server.json
-      #   env:
-      #     VERSION: ${{ steps.version.outputs.value }}
-      #   run: |
-      #     jq --arg v "$VERSION" '.version = $v | .packages[0].version = $v' server.json > server.tmp && mv server.tmp server.json
-      #
-      # - name: Install mcp-publisher
-      #   run: |
-      #     curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
-      #
-      # - name: Authenticate to MCP Registry
-      #   run: ./mcp-publisher login github-oidc
-      #
-      # - name: Publish to MCP Registry
-      #   run: ./mcp-publisher publish
+      - name: Set version in server.json
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          jq --arg v "$VERSION" '.version = $v | .packages[0].version = $v' server.json > server.tmp && mv server.tmp server.json
+
+      - name: Install mcp-publisher
+        run: |
+          curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+
+      - name: Authenticate to MCP Registry
+        run: ./mcp-publisher login github-oidc
+
+      - name: Publish to MCP Registry
+        run: ./mcp-publisher publish
