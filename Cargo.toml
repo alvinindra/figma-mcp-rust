@@ -1,6 +1,6 @@
 [package]
 name = "figma-mcp-rust"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 rust-version = "1.78"
 description = "Figma MCP server with full read/write access via plugin — no API token, no rate limits"
