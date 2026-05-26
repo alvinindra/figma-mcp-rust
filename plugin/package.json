@@ -1,0 +1,20 @@
+{
+  "name": "figma-mcp-rust-plugin",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"vite build --watch\" \"vite build --watch -c vite.config.main.ts\"",
+    "build": "vite build && vite build -c vite.config.main.ts",
+    "test": "bun test",
+    "test:coverage": "bun test --coverage"
+  },
+  "devDependencies": {
+    "@figma/plugin-typings": "^1",
+    "@sveltejs/vite-plugin-svelte": "^5",
+    "concurrently": "^9",
+    "svelte": "^5",
+    "typescript": "^5",
+    "vite": "^6",
+    "vite-plugin-singlefile": "^2"
+  }
+}

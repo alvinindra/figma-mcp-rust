@@ -1,0 +1,153 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            runner: ubuntu-latest
+            slug: linux-x64
+            bin: figma-mcp-rust
+          - target: aarch64-unknown-linux-gnu
+            runner: ubuntu-latest
+            slug: linux-arm64
+            bin: figma-mcp-rust
+            cross: true
+          - target: x86_64-apple-darwin
+            runner: macos-13
+            slug: darwin-x64
+            bin: figma-mcp-rust
+          - target: aarch64-apple-darwin
+            runner: macos-14
+            slug: darwin-arm64
+            bin: figma-mcp-rust
+          - target: x86_64-pc-windows-msvc
+            runner: windows-latest
+            slug: win32-x64
+            bin: figma-mcp-rust.exe
+          - target: aarch64-pc-windows-msvc
+            runner: windows-latest
+            slug: win32-arm64
+            bin: figma-mcp-rust.exe
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      - name: Install aarch64 linker (linux-arm64)
+        if: matrix.cross
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+
+      - name: Extract version
+        id: version
+        shell: bash
+        run: echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Build release binary
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Stage binary for npm package
+        shell: bash
+        run: |
+          mkdir -p npm/bin/${{ matrix.slug }}
+          cp "target/${{ matrix.target }}/release/${{ matrix.bin }}" "npm/bin/${{ matrix.slug }}/${{ matrix.bin }}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bin-${{ matrix.slug }}
+          path: npm/bin/${{ matrix.slug }}
+
+  publish:
+    name: Publish release artefacts
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Extract version
+        id: version
+        run: echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Download all binary artefacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Stage binaries into npm package
+        run: |
+          mkdir -p npm/bin
+          for dir in artifacts/bin-*; do
+            slug=${dir#artifacts/bin-}
+            mkdir -p "npm/bin/$slug"
+            cp -r "$dir/." "npm/bin/$slug/"
+            chmod +x npm/bin/$slug/figma-mcp-rust 2>/dev/null || true
+          done
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Build Figma plugin
+        working-directory: plugin
+        run: bun install && bun run build
+
+      - name: Package plugin
+        run: zip -r plugin.zip plugin/manifest.json plugin/dist/
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: plugin.zip
+          generate_release_notes: true
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Publish to npm
+        working-directory: npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          cp ../README.md .
+          npm version "$VERSION" --no-git-tag-version --allow-same-version
+          npm publish --access public
+
+      - name: Set version in server.json
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          jq --arg v "$VERSION" '.version = $v | .packages[0].version = $v' server.json > server.tmp && mv server.tmp server.json
+
+      - name: Install mcp-publisher
+        run: |
+          curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+
+      - name: Authenticate to MCP Registry
+        run: ./mcp-publisher login github-oidc
+
+      - name: Publish to MCP Registry
+        run: ./mcp-publisher publish

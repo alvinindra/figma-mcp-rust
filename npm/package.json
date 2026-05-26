@@ -1,0 +1,38 @@
+{
+  "name": "@alvinindra/figma-mcp-rust",
+  "version": "0.1.0",
+  "description": "A zero-cost, unlimited Figma MCP server — no API key, no rate limits (Rust port of vkhanhqui/figma-mcp-go)",
+  "mcpName": "io.github.alvinindra/figma-mcp-rust",
+  "bin": {
+    "figma-mcp-rust": "bin/run.js"
+  },
+  "files": [
+    "bin/run.js",
+    "bin/darwin-x64/",
+    "bin/darwin-arm64/",
+    "bin/linux-x64/",
+    "bin/linux-arm64/",
+    "bin/win32-x64/",
+    "bin/win32-arm64/"
+  ],
+  "keywords": [
+    "figma",
+    "mcp",
+    "model-context-protocol",
+    "ai",
+    "design",
+    "rust"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/alvinindra/figma-mcp-rust.git"
+  },
+  "homepage": "https://github.com/alvinindra/figma-mcp-rust#readme",
+  "bugs": {
+    "url": "https://github.com/alvinindra/figma-mcp-rust/issues"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

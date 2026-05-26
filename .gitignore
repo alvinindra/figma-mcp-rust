@@ -1,0 +1,34 @@
+# AI agent files
+ai/
+CLAUDE.md
+.claude
+.code-review-graph
+.mcp.json
+.mcpregistry_github_token
+.mcpregistry_registry_token
+
+# Rust build artifacts
+/target/
+Cargo.lock.bak
+
+# Legacy
+/bin/
+/dist/
+
+# Plugin
+plugin/node_modules/
+plugin/dist/
+
+# Cross-platform release binaries staged into the npm package on tag builds
+npm/bin/darwin-*/
+npm/bin/linux-*/
+npm/bin/win32-*/
+
+# OS
+.DS_Store
+
+output/
+example/
+.vscode/
+release
+localonly
