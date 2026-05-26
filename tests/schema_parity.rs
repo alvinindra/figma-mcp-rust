@@ -284,4 +284,24 @@ fn set_effects_array_required() {
         &obj(json!({"effects": [{"type": "DROP_SHADOW"}]}))
     )
     .is_none());
+    // NOISE is accepted, and valid noiseType variants pass validation.
+    assert!(validate_rpc(
+        "set_effects",
+        &["1:1".into()],
+        &obj(json!({"effects": [{"type": "NOISE", "noiseType": "MONOTONE"}]}))
+    )
+    .is_none());
+    assert!(validate_rpc(
+        "set_effects",
+        &["1:1".into()],
+        &obj(json!({"effects": [{"type": "NOISE", "noiseType": "DUOTONE"}]}))
+    )
+    .is_none());
+    // Unknown noiseType is rejected.
+    assert!(validate_rpc(
+        "set_effects",
+        &["1:1".into()],
+        &obj(json!({"effects": [{"type": "NOISE", "noiseType": "STATIC"}]}))
+    )
+    .is_some());
 }

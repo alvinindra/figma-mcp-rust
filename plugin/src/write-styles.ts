@@ -239,8 +239,30 @@ export const handleWriteStyleRequest = async (request: any) => {
               radius: Number(e.radius ?? 4),
               visible: e.visible ?? true,
             } as BlurEffect;
+          case "NOISE": {
+            const noiseType = (e.noiseType || "MONOTONE") as "MONOTONE" | "DUOTONE" | "MULTITONE";
+            const { r, g, b } = hexToRgb(e.color || "#000000");
+            const colorAlpha = e.colorOpacity != null ? Number(e.colorOpacity) : 1;
+            const noise: any = {
+              type: "NOISE",
+              noiseType,
+              noiseSize: Number(e.noiseSize ?? 2),
+              density: Number(e.density ?? 0.5),
+              color: { r, g, b, a: colorAlpha },
+              visible: e.visible ?? true,
+              blendMode: (e.blendMode || "NORMAL") as BlendMode,
+            };
+            if (noiseType === "DUOTONE") {
+              const sc = hexToRgb(e.secondaryColor || "#ffffff");
+              noise.secondaryColor = { r: sc.r, g: sc.g, b: sc.b, a: e.secondaryColorOpacity != null ? Number(e.secondaryColorOpacity) : 1 };
+            }
+            if (noiseType === "MULTITONE") {
+              noise.opacity = e.opacity != null ? Number(e.opacity) : 0.5;
+            }
+            return noise as Effect;
+          }
           default:
-            throw new Error(`Unknown effect type: ${e.type}. Must be DROP_SHADOW, INNER_SHADOW, LAYER_BLUR, or BACKGROUND_BLUR`);
+            throw new Error(`Unknown effect type: ${e.type}. Must be DROP_SHADOW, INNER_SHADOW, LAYER_BLUR, BACKGROUND_BLUR, or NOISE`);
         }
       });
       node.effects = effects;

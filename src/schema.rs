@@ -784,12 +784,22 @@ pub fn validate_rpc(
                 let t = obj.get("type").and_then(|v| v.as_str()).unwrap_or("");
                 if !matches!(
                     t,
-                    "DROP_SHADOW" | "INNER_SHADOW" | "LAYER_BLUR" | "BACKGROUND_BLUR"
+                    "DROP_SHADOW" | "INNER_SHADOW" | "LAYER_BLUR" | "BACKGROUND_BLUR" | "NOISE"
                 ) {
                     return Some(format!(
-                        "effects[{}].type must be DROP_SHADOW, INNER_SHADOW, LAYER_BLUR, or BACKGROUND_BLUR, got: {}",
+                        "effects[{}].type must be DROP_SHADOW, INNER_SHADOW, LAYER_BLUR, BACKGROUND_BLUR, or NOISE, got: {}",
                         i, t
                     ));
+                }
+                if t == "NOISE" {
+                    if let Some(nt) = obj.get("noiseType").and_then(|v| v.as_str()) {
+                        if !matches!(nt, "MONOTONE" | "DUOTONE" | "MULTITONE") {
+                            return Some(format!(
+                                "effects[{}].noiseType must be MONOTONE, DUOTONE, or MULTITONE, got: {}",
+                                i, nt
+                            ));
+                        }
+                    }
                 }
             }
             None

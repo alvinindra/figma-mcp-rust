@@ -11,6 +11,7 @@ import {
   serializeStyles,
   serializeText,
   serializeNode,
+  serializeEffects,
 } from "./serializers";
 
 // ── Figma global mock ─────────────────────────────────────────────────────────
@@ -330,6 +331,97 @@ describe("serializeStyles", () => {
     const node = { paddingLeft: 10, paddingRight: 20, paddingTop: 5, paddingBottom: 15 };
     const result = await serializeStyles(node);
     expect(result.padding).toEqual({ top: 5, right: 20, bottom: 15, left: 10 });
+  });
+
+  it("omits effects key when array is empty", async () => {
+    const result = await serializeStyles({ effects: [] });
+    expect(result.effects).toBeUndefined();
+  });
+
+  it("includes effects when present on the node", async () => {
+    const node = {
+      effects: [
+        { type: "DROP_SHADOW", color: { r: 0, g: 0, b: 0, a: 0.25 }, offset: { x: 0, y: 4 }, radius: 8, spread: 0, visible: true, blendMode: "NORMAL" },
+      ],
+    };
+    const result = await serializeStyles(node);
+    expect(Array.isArray(result.effects)).toBe(true);
+    expect(result.effects[0].type).toBe("DROP_SHADOW");
+    expect(result.effects[0].radius).toBe(8);
+  });
+
+  it("includes effectStyle name when effectStyleId resolves", async () => {
+    mockGetStyleByIdAsync = async (id) => (id === "e-1" ? { name: "Card Shadow" } : null);
+    const node = {
+      effects: [{ type: "LAYER_BLUR", radius: 4, visible: true }],
+      effectStyleId: "e-1",
+    };
+    const result = await serializeStyles(node);
+    expect(result.effectStyle).toBe("Card Shadow");
+  });
+});
+
+// ── serializeEffects ─────────────────────────────────────────────────────────
+
+describe("serializeEffects", () => {
+  it("returns 'mixed' for symbol input", () => {
+    expect(serializeEffects(Symbol())).toBe("mixed");
+  });
+
+  it("returns undefined for null/non-array/empty", () => {
+    expect(serializeEffects(null)).toBeUndefined();
+    expect(serializeEffects(undefined)).toBeUndefined();
+    expect(serializeEffects([])).toBeUndefined();
+  });
+
+  it("serializes a monotone noise effect", () => {
+    const effects = [{
+      type: "NOISE", noiseType: "MONOTONE",
+      noiseSize: 2, density: 0.5,
+      color: { r: 0, g: 0, b: 0, a: 1 },
+      visible: true, blendMode: "NORMAL",
+    }];
+    const result = serializeEffects(effects) as any[];
+    expect(result[0].type).toBe("NOISE");
+    expect(result[0].noiseType).toBe("MONOTONE");
+    expect(result[0].noiseSize).toBe(2);
+    expect(result[0].density).toBe(0.5);
+    expect(result[0].color).toBe("#000000");
+  });
+
+  it("serializes a duotone noise effect with secondaryColor", () => {
+    const effects = [{
+      type: "NOISE", noiseType: "DUOTONE",
+      noiseSize: 1, density: 0.4,
+      color: { r: 1, g: 0, b: 0, a: 1 },
+      secondaryColor: { r: 0, g: 1, b: 0, a: 1 },
+      visible: true, blendMode: "NORMAL",
+    }];
+    const result = serializeEffects(effects) as any[];
+    expect(result[0].secondaryColor).toBe("#00ff00");
+  });
+
+  it("serializes a multitone noise effect with opacity", () => {
+    const effects = [{
+      type: "NOISE", noiseType: "MULTITONE",
+      noiseSize: 1, density: 0.4,
+      color: { r: 0, g: 0, b: 1, a: 1 },
+      opacity: 0.3,
+      visible: true, blendMode: "NORMAL",
+    }];
+    const result = serializeEffects(effects) as any[];
+    expect(result[0].opacity).toBe(0.3);
+  });
+
+  it("preserves visible:false and non-default blendMode", () => {
+    const effects = [{
+      type: "DROP_SHADOW", color: { r: 0, g: 0, b: 0, a: 1 },
+      offset: { x: 0, y: 0 }, radius: 4, spread: 0,
+      visible: false, blendMode: "MULTIPLY",
+    }];
+    const result = serializeEffects(effects) as any[];
+    expect(result[0].visible).toBe(false);
+    expect(result[0].blendMode).toBe("MULTIPLY");
   });
 });
 

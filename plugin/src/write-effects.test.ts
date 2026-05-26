@@ -103,6 +103,54 @@ describe("set_effects", () => {
     expect(shadow.color.a).toBe(0.25); // default opacity
   });
 
+  it("sets a monotone noise effect", async () => {
+    mockNodes["1:1"] = { id: "1:1", effects: [] };
+    await handleWriteStyleRequest(makeRequest("set_effects", ["1:1"], {
+      effects: [{ type: "NOISE", noiseType: "MONOTONE", noiseSize: 1.5, density: 0.7, color: "#ff0000", blendMode: "MULTIPLY" }],
+    }));
+    const noise = mockNodes["1:1"].effects[0];
+    expect(noise.type).toBe("NOISE");
+    expect(noise.noiseType).toBe("MONOTONE");
+    expect(noise.noiseSize).toBe(1.5);
+    expect(noise.density).toBe(0.7);
+    expect(noise.color.r).toBeCloseTo(1);
+    expect(noise.blendMode).toBe("MULTIPLY");
+  });
+
+  it("sets a duotone noise effect with secondaryColor", async () => {
+    mockNodes["1:1"] = { id: "1:1", effects: [] };
+    await handleWriteStyleRequest(makeRequest("set_effects", ["1:1"], {
+      effects: [{ type: "NOISE", noiseType: "DUOTONE", color: "#000000", secondaryColor: "#ffffff" }],
+    }));
+    const noise = mockNodes["1:1"].effects[0];
+    expect(noise.noiseType).toBe("DUOTONE");
+    expect(noise.secondaryColor.r).toBeCloseTo(1);
+    expect(noise.secondaryColor.b).toBeCloseTo(1);
+  });
+
+  it("sets a multitone noise effect with opacity", async () => {
+    mockNodes["1:1"] = { id: "1:1", effects: [] };
+    await handleWriteStyleRequest(makeRequest("set_effects", ["1:1"], {
+      effects: [{ type: "NOISE", noiseType: "MULTITONE", opacity: 0.3 }],
+    }));
+    const noise = mockNodes["1:1"].effects[0];
+    expect(noise.noiseType).toBe("MULTITONE");
+    expect(noise.opacity).toBe(0.3);
+  });
+
+  it("defaults noise effect fields", async () => {
+    mockNodes["1:1"] = { id: "1:1", effects: [] };
+    await handleWriteStyleRequest(makeRequest("set_effects", ["1:1"], {
+      effects: [{ type: "NOISE" }],
+    }));
+    const noise = mockNodes["1:1"].effects[0];
+    expect(noise.noiseType).toBe("MONOTONE");
+    expect(noise.noiseSize).toBe(2);
+    expect(noise.density).toBe(0.5);
+    expect(noise.visible).toBe(true);
+    expect(noise.blendMode).toBe("NORMAL");
+  });
+
   it("throws for unknown effect type", async () => {
     mockNodes["1:1"] = { id: "1:1", effects: [] };
     await expect(handleWriteStyleRequest(makeRequest("set_effects", ["1:1"], {

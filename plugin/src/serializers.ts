@@ -47,6 +47,56 @@ export const getBounds = (node: any) => {
   return undefined;
 };
 
+const serializeRgba = (color: any) => {
+  if (!color || typeof color !== "object") return undefined;
+  const hex = toHex(color);
+  const a = color.a != null ? color.a : 1;
+  if (a === 1) return hex;
+  return hex + Math.round(a * 255).toString(16).padStart(2, "0");
+};
+
+export const serializeEffects = (effects: any) => {
+  if (isMixed(effects)) return "mixed";
+  if (!effects || !Array.isArray(effects) || effects.length === 0) return undefined;
+  return effects.map((e: any) => {
+    const base: any = { type: e.type };
+    if (e.visible === false) base.visible = false;
+    if (e.blendMode && e.blendMode !== "NORMAL") base.blendMode = e.blendMode;
+    switch (e.type) {
+      case "DROP_SHADOW":
+      case "INNER_SHADOW":
+        return {
+          ...base,
+          color: serializeRgba(e.color),
+          offset: e.offset ? { x: e.offset.x, y: e.offset.y } : undefined,
+          radius: e.radius,
+          spread: e.spread || undefined,
+        };
+      case "LAYER_BLUR":
+      case "BACKGROUND_BLUR":
+        return { ...base, radius: e.radius };
+      case "NOISE": {
+        const out: any = {
+          ...base,
+          noiseType: e.noiseType,
+          noiseSize: e.noiseSize,
+          density: e.density,
+          color: serializeRgba(e.color),
+        };
+        if (e.noiseType === "DUOTONE" && e.secondaryColor) {
+          out.secondaryColor = serializeRgba(e.secondaryColor);
+        }
+        if (e.noiseType === "MULTITONE" && e.opacity != null) {
+          out.opacity = e.opacity;
+        }
+        return out;
+      }
+      default:
+        return { ...base, ...e };
+    }
+  });
+};
+
 export const serializeStyles = async (node: any) => {
   const styles: any = {};
 
@@ -81,6 +131,15 @@ export const serializeStyles = async (node: any) => {
       bottom: node.paddingBottom,
       left: node.paddingLeft,
     };
+  }
+
+  if ("effects" in node) {
+    if (node.effectStyleId && typeof node.effectStyleId === "string") {
+      const style = await figma.getStyleByIdAsync(node.effectStyleId);
+      if (style) styles.effectStyle = style.name;
+    }
+    const effects = serializeEffects(node.effects);
+    if (effects !== undefined) styles.effects = effects;
   }
 
   return styles;

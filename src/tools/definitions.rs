@@ -414,7 +414,7 @@ pub static TOOLS: &[ToolDef] = &[
     },
     ToolDef {
         name: "set_effects",
-        description: "Apply one or more effects (drop shadow, inner shadow, layer blur, background blur) directly to a node. Replaces all existing effects. Pass an empty array to clear all effects.",
+        description: "Apply one or more effects (drop shadow, inner shadow, layer blur, background blur, or noise) directly to a node. Replaces all existing effects. Pass an empty array to clear all effects. NOISE accepts noiseType (MONOTONE/DUOTONE/MULTITONE), noiseSize, density, color, plus secondaryColor for DUOTONE or opacity for MULTITONE — NoiseEffect is marked beta by Figma and may change.",
         input_schema: set_effects_schema,
         node_ids: NodeIds::SingleField,
         special: None,
