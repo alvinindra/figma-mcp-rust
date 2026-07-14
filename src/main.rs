@@ -59,11 +59,16 @@ async fn main() -> anyhow::Result<()> {
     // Graceful Ctrl-C handling, mirroring the Go server.
     let shutdown_node = node.clone();
     tokio::spawn(async move {
-        if tokio::signal::ctrl_c().await.is_ok() {
-            info!("Shutting down...");
+        match tokio::signal::ctrl_c().await {
+            Ok(()) => {
+                info!("Shutting down...");
+                election.stop().await;
+                shutdown_node.stop().await;
+            }
+            // Signal registration failed — keep serving rather than
+            // tearing the bridge down at startup.
+            Err(e) => warn!("ctrl-c handler unavailable: {e}"),
         }
-        election.stop().await;
-        shutdown_node.stop().await;
     });
 
     // Serve MCP over stdio. The future completes when the client disconnects.

@@ -126,8 +126,13 @@ impl Bridge {
             }
         };
 
-        // Progress frames: just bump the deadline.
-        if resp.progress > 0 && !resp.request_id.is_empty() {
+        // Progress frames: just bump the deadline. A frame carrying data or an
+        // error is a final response even if it also reports progress.
+        if resp.progress > 0
+            && resp.data.is_none()
+            && resp.error.is_empty()
+            && !resp.request_id.is_empty()
+        {
             if let Some(entry) = self.inner.pending.get(&resp.request_id) {
                 entry.progress.notify_one();
                 debug!(
@@ -260,7 +265,7 @@ impl Bridge {
 
     fn next_id(&self) -> String {
         let n = self.inner.counter.fetch_add(1, Ordering::SeqCst) + 1;
-        // Approximate the Go format "req-HHMMSS-N" using local wall clock seconds.
+        // Approximate the Go format "req-HHMMSS-N" using UTC wall clock seconds.
         let secs = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()

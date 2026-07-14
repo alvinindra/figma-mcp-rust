@@ -61,6 +61,9 @@ pub fn extract_node_ids(
                 .remove("nodeId")
                 .and_then(|v| match v {
                     Value::String(s) => Some(s),
+                    // Tolerate numeric IDs — validation will report the bad format
+                    // instead of a misleading "nodeId is required".
+                    Value::Number(n) => Some(n.to_string()),
                     _ => None,
                 })
                 .unwrap_or_default();

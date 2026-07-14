@@ -156,7 +156,8 @@ async fn save_one(
         .format
         .clone()
         .filter(|s| !s.is_empty())
-        .unwrap_or_else(|| default_format.to_string());
+        .unwrap_or_else(|| default_format.to_string())
+        .to_ascii_uppercase();
     let inferred = infer_format(&resolved);
     if format.is_empty() {
         format = inferred.clone();
@@ -341,15 +342,21 @@ pub fn export_frames_to_pdf(
                 .await
                 .map_err(|e| format!("mkdir: {e}"))?;
         }
-        if tokio::fs::try_exists(&resolved)
-            .await
-            .map_err(|e| e.to_string())?
-        {
-            return Err(format!("file already exists: {}", resolved.display()));
-        }
-        tokio::fs::write(&resolved, &merged)
+        // Exclusive create — atomic, no TOCTOU between exists-check and write.
+        let mut opts = tokio::fs::OpenOptions::new();
+        opts.write(true).create_new(true);
+        let mut f = opts.open(&resolved).await.map_err(|e| {
+            if e.kind() == std::io::ErrorKind::AlreadyExists {
+                format!("file already exists: {}", resolved.display())
+            } else {
+                format!("write file: {e}")
+            }
+        })?;
+        use tokio::io::AsyncWriteExt;
+        f.write_all(&merged)
             .await
             .map_err(|e| format!("write file: {e}"))?;
+        f.flush().await.map_err(|e| format!("write file: {e}"))?;
 
         Ok(json!({
             "outputPath": resolved.display().to_string(),

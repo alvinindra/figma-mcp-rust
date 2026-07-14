@@ -16,9 +16,11 @@ pub struct Follower {
 
 impl Follower {
     pub fn new(leader_url: impl Into<String>) -> Self {
-        // 35s > 30s bridge timeout — gives the leader time to time out first.
+        // No global timeout: the leader enforces its own bridge timeout (60s base,
+        // extended by progress frames), so the follower must outwait it. A short
+        // connect timeout still catches a dead leader quickly.
         let client = reqwest::Client::builder()
-            .timeout(Duration::from_secs(35))
+            .connect_timeout(Duration::from_secs(5))
             .build()
             .expect("reqwest client build");
         Self {
@@ -48,6 +50,8 @@ impl Follower {
         let resp = self
             .client
             .post(format!("{}/rpc", self.leader_url))
+            // Hard upper bound well above any leader-side timeout.
+            .timeout(Duration::from_secs(600))
             .json(&req)
             .send()
             .await

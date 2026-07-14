@@ -101,9 +101,17 @@ impl ServerHandler for Handler {
         }
 
         // Generic pipeline: split into (nodeIDs, params), validate, forward to bridge.
-        let (mut node_ids, params) = extract_node_ids(def.node_ids, args);
+        let (mut node_ids, mut params) = extract_node_ids(def.node_ids, args);
         for id in node_ids.iter_mut() {
             *id = crate::schema::normalize_node_id(id);
+        }
+        // Tools like scan_text_nodes/search_nodes carry the ID inside params —
+        // normalize those too so hyphen-form IDs pass validation.
+        for key in ["nodeId", "parentId"] {
+            if let Some(serde_json::Value::String(s)) = params.get(key) {
+                let normalized = crate::schema::normalize_node_id(s);
+                params.insert(key.into(), serde_json::Value::String(normalized));
+            }
         }
 
         if let Some(err) = validate_rpc(def.name, &node_ids, &params) {
