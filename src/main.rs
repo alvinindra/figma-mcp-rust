@@ -94,9 +94,7 @@ fn filtered_stdin() -> tokio::io::DuplexStream {
                 warn!("ignoring unparsable JSON-RPC frame from stdin");
                 continue;
             }
-            if tx.write_all(line.as_bytes()).await.is_err()
-                || tx.write_all(b"\n").await.is_err()
-            {
+            if tx.write_all(line.as_bytes()).await.is_err() || tx.write_all(b"\n").await.is_err() {
                 break;
             }
         }
