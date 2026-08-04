@@ -7,6 +7,27 @@ on:
   pull_request:
 
 jobs:
+  verify-versions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Check version fields stay in sync
+        run: |
+          cargo_v=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
+          plugin_v=$(jq -r .version .claude-plugin/plugin.json)
+          npm_v=$(jq -r .version npm/package.json)
+          server_v=$(jq -r .version server.json)
+          server_pkg_v=$(jq -r '.packages[0].version' server.json)
+          echo "Cargo.toml=$cargo_v plugin.json=$plugin_v npm/package.json=$npm_v server.json=$server_v/$server_pkg_v"
+          for v in "$plugin_v" "$npm_v" "$server_v" "$server_pkg_v"; do
+            if [ "$v" != "$cargo_v" ]; then
+              echo "Version mismatch: expected $cargo_v everywhere"
+              exit 1
+            fi
+          done
+
   verify-rust:
     runs-on: ubuntu-latest
     timeout-minutes: 15
