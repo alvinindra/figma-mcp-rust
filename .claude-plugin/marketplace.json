@@ -1,0 +1,16 @@
+{
+  "name": "figma-mcp-rust",
+  "description": "Figma MCP server in Rust — plugin bridge, no API token, no rate limits, 73 tools.",
+  "owner": {
+    "name": "Alvin Indra"
+  },
+  "plugins": [
+    {
+      "name": "figma-mcp-rust",
+      "source": "./",
+      "description": "Figma MCP server with full read/write access via plugin bridge — no API token, no rate limits, 73 tools.",
+      "category": "design",
+      "homepage": "https://github.com/alvinindra/figma-mcp-rust"
+    }
+  ]
+}

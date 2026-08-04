@@ -55,6 +55,12 @@ Install via `npx` — no build step required.
 claude mcp add -s project figma-mcp-rust -- npx -y @alvinindra/figma-mcp-rust@latest
 ```
 
+**Claude Code plugin marketplace**
+```bash
+/plugin marketplace add alvinindra/figma-mcp-rust
+/plugin install figma-mcp-rust@figma-mcp-rust
+```
+
 **Codex CLI**
 ```bash
 codex mcp add figma-mcp-rust -- npx -y @alvinindra/figma-mcp-rust@latest
