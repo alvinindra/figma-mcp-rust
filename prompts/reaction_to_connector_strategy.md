@@ -1,4 +1,4 @@
-# Strategy: Analyze Figma Prototype Reactions and Map Interaction Flows
+# Analyze Figma Prototype Reactions and Map Interaction Flows
 
 ## Goal
 Process the JSON output from the get_reactions tool to understand prototype flows
@@ -33,9 +33,9 @@ You will receive JSON data from get_reactions. Each node may contain reactions l
 
 ### 3. Generate Flow Map
 For each valid reaction, create a human-readable description:
-- "On click → navigate to [Destination Name]"
-- "On drag → open [Destination Name] overlay"
-- "On hover → swap to [Destination Name]"
+- "On click, navigate to [Destination Name]"
+- "On drag, open [Destination Name] overlay"
+- "On hover, swap to [Destination Name]"
 
 Combine these into a structured flow map grouped by source screen.
 
@@ -52,6 +52,6 @@ Flow Map:
 - Cross-check node names from get_nodes_info with the flow map
 
 ## Notes
-- Node IDs use colon format: 4029:12345 — never use hyphens
+- Node IDs use colon format (4029:12345), never hyphens
 - Use get_reactions on a set of nodes that represent screens or interactive frames
 - Focus on NAVIGATE actions for the primary user journey

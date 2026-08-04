@@ -2,7 +2,7 @@
   "$schema": "https://glama.ai/mcp/schemas/server.json",
   "maintainers": ["alvinindra"],
   "name": "figma-mcp-rust",
-  "description": "Figma MCP server with full read/write access via plugin bridge — no API token, no rate limits. 73 tools for design automation written in Rust. Port of vkhanhqui/figma-mcp-go.",
+  "description": "Figma MCP server with full read/write access via plugin bridge. No API token, no rate limits. 73 tools for design automation written in Rust. Port of vkhanhqui/figma-mcp-go.",
   "license": "MIT",
   "tools": [
     { "name": "get_document", "description": "Full current page tree" },

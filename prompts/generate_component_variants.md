@@ -7,11 +7,11 @@ states) by cloning and mutating it. Arrange the variants in a tidy grid for revi
 
 Ask the user:
 - Source node ID (the base component or frame to clone)
-- What variants to generate — choose one or more:
-  a) **Sizes** — Small, Medium, Large (scale width/height, adjust font size and padding)
-  b) **Color themes** — e.g. Primary, Secondary, Danger, Success, Warning
-  c) **States** — Default, Hover, Pressed, Disabled, Loading
-  d) **Dark mode** — duplicate with inverted background/text colors
+- What variants to generate, one or more of:
+  a) **Sizes**: Small, Medium, Large (scale width/height, adjust font size and padding)
+  b) **Color themes**: e.g. Primary, Secondary, Danger, Success, Warning
+  c) **States**: Default, Hover, Pressed, Disabled, Loading
+  d) **Dark mode**: duplicate with inverted background/text colors
 - Arrange output on same page or new frame? (default: new container frame)
 
 ## Steps
@@ -25,10 +25,10 @@ Call get_node(sourceNodeId) to understand:
 
 ### 2. Plan the variant grid
 Calculate layout:
-- Each clone = source width × source height
+- Each clone = source width x source height
 - Gap between clones = 24px
 - Label each clone with its variant name (create_text node below each)
-- Total container width = (cloneWidth + 24) × columns
+- Total container width = (cloneWidth + 24) x columns
 
 ### 3. Create container frame (if requested)
 create_frame(name="Variants/ComponentName", width=totalWidth, height=totalHeight,
@@ -41,18 +41,18 @@ create_frame(name="Variants/ComponentName", width=totalWidth, height=totalHeight
 - Clone source: clone_node(sourceId, parentId=containerId)
 - Compute scale factor (SM=0.75, MD=1.0, LG=1.5)
 - resize_nodes to new dimensions
-- For TEXT children: set_text to same content (font size cannot be changed via MCP — note this limitation)
+- For TEXT children: set_text to same content (font size cannot be changed via MCP; note this limitation)
 - rename_node to "ComponentName/SM" etc.
 
 **Color themes:**
 - Clone source: clone_node(sourceId, parentId=containerId)
 - For each fill-bearing child: set_fills(nodeId, color=themeHex)
 - Color mapping suggestion:
-  - Primary   → use brand primary color
-  - Secondary → use brand secondary color
-  - Danger    → #EF4444
-  - Success   → #22C55E
-  - Warning   → #F59E0B
+  - Primary: use brand primary color
+  - Secondary: use brand secondary color
+  - Danger: #EF4444
+  - Success: #22C55E
+  - Warning: #F59E0B
 - rename_node to "ComponentName/Primary" etc.
 
 **States:**

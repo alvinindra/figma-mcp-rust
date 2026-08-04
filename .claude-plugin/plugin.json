@@ -1,6 +1,6 @@
 {
   "name": "figma-mcp-rust",
-  "description": "Figma MCP server with full read/write access via plugin bridge — no API token, no rate limits, 73 tools.",
+  "description": "Figma MCP server with full read/write access via plugin bridge. No API token, no rate limits, 73 tools, 13 skills.",
   "version": "0.1.7",
   "author": {
     "name": "Alvin Indra"

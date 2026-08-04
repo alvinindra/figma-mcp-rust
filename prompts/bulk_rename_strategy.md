@@ -34,20 +34,20 @@ modifying any visual properties.
 
 4. **Propose names**
    For each flagged node, derive a new name from:
-   - Its node type and content (TEXT nodes → use their text content as label).
-   - Its position in the hierarchy (child of "Card" frame → "Card/...").
-   - Its visual role (if it contains only an icon → "Icon/...").
-   - For INSTANCE nodes → use the mainComponent name.
+   - Its node type and content (TEXT nodes: use their text content as label).
+   - Its position in the hierarchy (child of "Card" frame: "Card/...").
+   - Its visual role (if it contains only an icon: "Icon/...").
+   - For INSTANCE nodes: use the mainComponent name.
    Show a preview table to the user before applying:
    | Node ID | Current Name | Proposed Name |
 
 5. **Apply renames (after user confirmation)**
    Call rename_node(nodeId, name) for each node.
-   Process in batches — do not wait for user confirmation between individual renames once
+   Process in batches; do not wait for user confirmation between individual renames once
    the full plan is approved.
 
 ## Rules
 - Never rename nodes that already follow the convention.
 - Never change names of COMPONENT master nodes (only instances and frames).
-- Preserve "/" hierarchy separators — do not flatten them.
+- Preserve "/" hierarchy separators; do not flatten them.
 - If unsure about a name, leave it and flag it for the user to decide.

@@ -1,7 +1,7 @@
 {
   "name": "@alvinindra/figma-mcp-rust",
   "version": "0.1.7",
-  "description": "A zero-cost, unlimited Figma MCP server — no API key, no rate limits (Rust port of vkhanhqui/figma-mcp-go)",
+  "description": "Zero-cost, unlimited Figma MCP server: no API key, no rate limits (Rust port of vkhanhqui/figma-mcp-go)",
   "mcpName": "io.github.alvinindra/figma-mcp-rust",
   "bin": {
     "figma-mcp-rust": "bin/run.js"
