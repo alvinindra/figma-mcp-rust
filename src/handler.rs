@@ -47,7 +47,13 @@ impl ServerHandler for Handler {
                 name: "figma-mcp-rust".into(),
                 version: self.version.clone(),
             },
-            instructions: Some("Figma MCP server with full read/write access via plugin.".into()),
+            instructions: Some(
+                "Figma MCP server with full read/write access through a companion Figma plugin. \
+                 The plugin must be running in Figma Desktop (Plugins > Development > figma-mcp-rust) \
+                 with its window open; until it connects, tool calls fail with 'plugin not connected'. \
+                 Node IDs use colon format (e.g. 4029:12345). All write operations are undoable in Figma."
+                    .into(),
+            ),
         }
     }
 
