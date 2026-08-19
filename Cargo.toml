@@ -18,7 +18,7 @@ path = "src/lib.rs"
 
 [dependencies]
 # MCP
-rmcp = { version = "0.3", features = ["server", "macros", "schemars", "transport-io"] }
+rmcp = { version = "3", features = ["server", "macros", "schemars", "transport-io"] }
 schemars = "1.0"
 
 # Async runtime
