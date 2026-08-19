@@ -4,12 +4,18 @@ use std::path::{Path, PathBuf};
 
 use base64::{engine::general_purpose::STANDARD as B64, Engine};
 use futures::future::BoxFuture;
+use futures::stream::StreamExt;
 use futures::FutureExt;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 
 use crate::handler::HandlerArc;
 use crate::pdf;
+
+/// How many `get_screenshot` round-trips `save_screenshots` keeps in flight.
+/// ponytail: fixed ceiling — raise it only if export latency dominates, since
+/// each in-flight item holds a full base64 image in memory.
+const SAVE_CONCURRENCY: usize = 8;
 
 #[derive(Debug, Deserialize)]
 struct SaveItem {
@@ -71,39 +77,41 @@ pub fn save_screenshots(
 
         let work_dir = std::env::current_dir().map_err(|e| format!("getwd: {e}"))?;
 
-        let mut results: Vec<SaveResult> = Vec::with_capacity(raw_items.len());
-        let mut succeeded = 0;
-        let mut failed = 0;
-
-        for (i, raw) in raw_items.into_iter().enumerate() {
-            let item: SaveItem = match serde_json::from_value(raw) {
-                Ok(it) => it,
-                Err(e) => {
-                    results.push(SaveResult {
-                        index: i,
-                        error: e.to_string(),
-                        ..Default::default()
-                    });
-                    failed += 1;
-                    continue;
+        // One bridge round-trip per item, but overlapped: serially this cost
+        // N x (export + write) with a full WebSocket round-trip each. `buffered`
+        // keeps the output in input order, so `index` still lines up.
+        let results: Vec<SaveResult> =
+            futures::stream::iter(raw_items.into_iter().enumerate().map(|(i, raw)| {
+                let handler = handler.clone();
+                let work_dir = work_dir.clone();
+                let default_format = default_format.clone();
+                async move {
+                    match serde_json::from_value::<SaveItem>(raw) {
+                        Ok(item) => {
+                            save_one(
+                                &handler,
+                                &item,
+                                i,
+                                &work_dir,
+                                &default_format,
+                                default_scale,
+                            )
+                            .await
+                        }
+                        Err(e) => SaveResult {
+                            index: i,
+                            error: e.to_string(),
+                            ..Default::default()
+                        },
+                    }
                 }
-            };
-            let r = save_one(
-                &handler,
-                &item,
-                i,
-                &work_dir,
-                &default_format,
-                default_scale,
-            )
+            }))
+            .buffered(SAVE_CONCURRENCY)
+            .collect()
             .await;
-            if r.success {
-                succeeded += 1;
-            } else {
-                failed += 1;
-            }
-            results.push(r);
-        }
+
+        let succeeded = results.iter().filter(|r| r.success).count();
+        let failed = results.len() - succeeded;
 
         let out = json!({
             "total": results.len(),
