@@ -29,6 +29,7 @@ npm/bin/win32-*/
 
 output/
 example/
+examples/
 .vscode/
 release
 localonly
