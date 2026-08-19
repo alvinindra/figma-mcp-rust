@@ -163,27 +163,26 @@ export const handleReadDocumentRequest = async (request: any) => {
           return result;
         }
         if (detail === "full") {
-          const serialized = await serializeNode(node);
-          if (currentDepth >= depth && serialized.children) {
-            return Object.assign({}, serialized, {
-              children: undefined,
-              childCount: node.children ? node.children.length : 0,
-            });
-          }
-          if (serialized.children) {
-            const childNodes = await Promise.all(
-              serialized.children.map((child: any) =>
-                figma.getNodeByIdAsync(child.id),
-              ),
-            );
-            const serializedChildren = await Promise.all(
-              childNodes
-                .filter((n) => n !== null && n.type !== "DOCUMENT")
-                .map((n) => serializeWithDepth(n, currentDepth + 1)),
-            );
-            return Object.assign({}, serialized, { children: serializedChildren });
-          }
-          return serialized;
+          const remaining = depth - currentDepth;
+          // Without per-descendant component dedupe there is nothing to inspect
+          // level by level, so one depth-limited pass produces the whole result.
+          if (!dedupeComponents) return await serializeNode(node, remaining);
+
+          // dedupeComponents has to see every descendant INSTANCE, so keep
+          // walking level by level -- but serialize only this node (depth 0) and
+          // recurse over node.children directly instead of serializing the whole
+          // subtree and then re-fetching each child by ID.
+          const serialized = await serializeNode(node, 0);
+          if (remaining <= 0 || !("children" in node)) return serialized;
+          const serializedChildren = await Promise.all(
+            node.children
+              .filter((n: any) => n.type !== "DOCUMENT")
+              .map((n: any) => serializeWithDepth(n, currentDepth + 1)),
+          );
+          return Object.assign({}, serialized, {
+            children: serializedChildren,
+            childCount: undefined,
+          });
         }
 
         const serialized = await serializeForDetail(node);
@@ -273,20 +272,17 @@ export const handleReadDocumentRequest = async (request: any) => {
 
     case "get_fonts": {
       const fontMap = new Map<string, any>();
-      const collectFonts = (n: any) => {
-        if (n.type === "TEXT") {
-          const fontName = n.fontName;
-          if (typeof fontName !== "symbol" && fontName) {
-            const key = `${fontName.family}::${fontName.style}`;
-            if (!fontMap.has(key)) {
-              fontMap.set(key, { family: fontName.family, style: fontName.style, nodeCount: 0 });
-            }
-            fontMap.get(key).nodeCount++;
+      await figma.currentPage.loadAsync();
+      for (const n of figma.currentPage.findAllWithCriteria({ types: ["TEXT"] })) {
+        const fontName = n.fontName;
+        if (typeof fontName !== "symbol" && fontName) {
+          const key = `${fontName.family}::${fontName.style}`;
+          if (!fontMap.has(key)) {
+            fontMap.set(key, { family: fontName.family, style: fontName.style, nodeCount: 0 });
           }
+          fontMap.get(key).nodeCount++;
         }
-        if ("children" in n) n.children.forEach(collectFonts);
-      };
-      collectFonts(figma.currentPage);
+      }
       const fonts = Array.from(fontMap.values()).sort((a, b) => b.nodeCount - a.nodeCount);
       return {
         type: request.type,
@@ -302,16 +298,20 @@ export const handleReadDocumentRequest = async (request: any) => {
       const scopeNodeId = request.params && request.params.nodeId;
       const types = request.params && request.params.types ? request.params.types : [];
       const limit = request.params && request.params.limit ? request.params.limit : 50;
-      const root = scopeNodeId
+      const root: any = scopeNodeId
         ? await figma.getNodeByIdAsync(scopeNodeId)
         : figma.currentPage;
       if (!root) throw new Error(`Node not found: ${scopeNodeId}`);
+      if (root.type === "PAGE") await root.loadAsync();
+      const typeSet = new Set<string>(types);
       const results: any[] = [];
-      const search = async (n: any) => {
+      // Kept as a manual walk rather than findAllWithCriteria: the limit lets us
+      // stop early, which an index-wide search cannot do.
+      const search = (n: any) => {
         if (results.length >= limit) return;
         if (n !== root) {
           const nameMatch = !query || n.name.toLowerCase().includes(query);
-          const typeMatch = types.length === 0 || types.includes(n.type);
+          const typeMatch = typeSet.size === 0 || typeSet.has(n.type);
           if (nameMatch && typeMatch) {
             results.push({
               id: n.id,
@@ -322,10 +322,10 @@ export const handleReadDocumentRequest = async (request: any) => {
           }
         }
         if (results.length < limit && "children" in n) {
-          for (const child of n.children) await search(child);
+          for (const child of n.children) search(child);
         }
       };
-      await search(root);
+      search(root);
       return {
         type: request.type,
         requestId: request.requestId,
@@ -349,22 +349,9 @@ export const handleReadDocumentRequest = async (request: any) => {
     case "scan_text_nodes": {
       const nodeId = request.params && request.params.nodeId;
       if (!nodeId) throw new Error("nodeId is required for scan_text_nodes");
-      const root = await figma.getNodeByIdAsync(nodeId);
+      const root: any = await figma.getNodeByIdAsync(nodeId);
       if (!root) throw new Error(`Node not found: ${nodeId}`);
-      const textNodes: any[] = [];
-      const findText = async (n: any) => {
-        if (n.type === "TEXT") {
-          textNodes.push({
-            id: n.id,
-            name: n.name,
-            characters: n.characters,
-            fontSize: isMixed(n.fontSize) ? "mixed" : n.fontSize,
-            fontName: isMixed(n.fontName) ? "mixed" : n.fontName,
-          });
-        }
-        if ("children" in n)
-          for (const child of n.children) await findText(child);
-      };
+      if (root.type === "PAGE") await root.loadAsync();
       figma.ui.postMessage({
         type: "progress_update",
         requestId: request.requestId,
@@ -372,7 +359,21 @@ export const handleReadDocumentRequest = async (request: any) => {
         message: "Scanning text nodes...",
       });
       await new Promise((r) => setTimeout(r, 0));
-      await findText(root);
+      // findAllWithCriteria uses Figma's type index and excludes the node it is
+      // called on, so a TEXT root has to be added back explicitly.
+      const found: any[] =
+        root.type === "TEXT"
+          ? [root]
+          : "findAllWithCriteria" in root
+            ? root.findAllWithCriteria({ types: ["TEXT"] })
+            : [];
+      const textNodes = found.map((n: any) => ({
+        id: n.id,
+        name: n.name,
+        characters: n.characters,
+        fontSize: isMixed(n.fontSize) ? "mixed" : n.fontSize,
+        fontName: isMixed(n.fontName) ? "mixed" : n.fontName,
+      }));
       return {
         type: request.type,
         requestId: request.requestId,
@@ -388,12 +389,16 @@ export const handleReadDocumentRequest = async (request: any) => {
         throw new Error("nodeId is required for scan_nodes_by_types");
       if (types.length === 0)
         throw new Error("types must be a non-empty array");
-      const root = await figma.getNodeByIdAsync(nodeId);
+      const root: any = await figma.getNodeByIdAsync(nodeId);
       if (!root) throw new Error(`Node not found: ${nodeId}`);
+      if (root.type === "PAGE") await root.loadAsync();
+      const typeSet = new Set<string>(types);
       const matchingNodes: any[] = [];
-      const findByTypes = async (n: any) => {
+      // Manual walk, not findAllWithCriteria: this tool prunes whole invisible
+      // subtrees, which an index search would flatten back in.
+      const findByTypes = (n: any) => {
         if ("visible" in n && !n.visible) return;
-        if (types.includes(n.type)) {
+        if (typeSet.has(n.type)) {
           matchingNodes.push({
             id: n.id,
             name: n.name,
@@ -406,8 +411,7 @@ export const handleReadDocumentRequest = async (request: any) => {
             },
           });
         }
-        if ("children" in n)
-          for (const child of n.children) await findByTypes(child);
+        if ("children" in n) for (const child of n.children) findByTypes(child);
       };
       figma.ui.postMessage({
         type: "progress_update",
@@ -416,7 +420,7 @@ export const handleReadDocumentRequest = async (request: any) => {
         message: `Scanning for types: ${types.join(", ")}...`,
       });
       await new Promise((r) => setTimeout(r, 0));
-      await findByTypes(root);
+      findByTypes(root);
       return {
         type: request.type,
         requestId: request.requestId,

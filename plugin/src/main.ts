@@ -2,6 +2,24 @@
 
 import { handleReadRequest } from "./read-handlers";
 import { handleWriteRequest } from "./write-handlers";
+import { clearStyleCache } from "./serializers";
+
+// Reads that walk large parts of the tree. For these, skipping invisible nodes
+// inside instances makes traversal several times faster (findAllWithCriteria up
+// to hundreds of times). The flag is scoped to the request and reset afterwards:
+// while it is on, getNodeByIdAsync returns null for those nodes and reading a
+// property on one throws, which would break writes that target a hidden layer
+// inside an instance.
+const FAST_TRAVERSAL = new Set([
+  "get_document",
+  "get_design_context",
+  "get_fonts",
+  "get_annotations",
+  "get_local_components",
+  "search_nodes",
+  "scan_text_nodes",
+  "scan_nodes_by_types",
+]);
 
 const sendStatus = () => {
   figma.ui.postMessage({
@@ -15,6 +33,11 @@ const sendStatus = () => {
 };
 
 const handleRequest = async (request: any) => {
+  clearStyleCache();
+  // Restore rather than hardcode false: the flag defaults to true in Dev Mode.
+  const prevSkip = figma.skipInvisibleInstanceChildren;
+  const fast = FAST_TRAVERSAL.has(request.type);
+  if (fast) figma.skipInvisibleInstanceChildren = true;
   try {
     const result =
       (await handleReadRequest(request)) ?? (await handleWriteRequest(request));
@@ -27,6 +50,8 @@ const handleRequest = async (request: any) => {
       requestId: request.requestId,
       error: error instanceof Error ? error.message : String(error),
     };
+  } finally {
+    if (fast) figma.skipInvisibleInstanceChildren = prevSkip;
   }
 };
 

@@ -2,6 +2,26 @@
 
 export const isMixed = (value: any) => typeof value === "symbol";
 
+// Style-name lookups dominate the cost of serializing a large tree: up to three
+// getStyleByIdAsync calls per node (fill/stroke/effect) plus one for text, while
+// design-system files reuse the same handful of style IDs across thousands of
+// nodes. Caches the in-flight promise rather than the resolved value, because
+// siblings are serialized with Promise.all and would all miss a value-only cache
+// before any of them filled it. main.ts clears the cache at the start of every
+// request, so a style rename shows up on the next call.
+const styleNameCache = new Map<string, Promise<string | undefined>>();
+
+export const clearStyleCache = () => styleNameCache.clear();
+
+const styleName = (id: string): Promise<string | undefined> => {
+  let pending = styleNameCache.get(id);
+  if (!pending) {
+    pending = figma.getStyleByIdAsync(id).then((style) => style?.name);
+    styleNameCache.set(id, pending);
+  }
+  return pending;
+};
+
 // Round floating-point pixel values to 2 decimal places.
 // Figma sometimes returns values like 123.99999999999999 instead of 124.
 const pixelRound = (v: number) => Math.round(v * 100) / 100;
@@ -103,8 +123,8 @@ export const serializeStyles = async (node: any) => {
   if ("fills" in node) {
     // Prefer named style over raw fill values when a style is applied.
     if (node.fillStyleId && typeof node.fillStyleId === "string") {
-      const style = await figma.getStyleByIdAsync(node.fillStyleId);
-      if (style) styles.fillStyle = style.name;
+      const name = await styleName(node.fillStyleId);
+      if (name) styles.fillStyle = name;
     }
     const fills = serializePaints(node.fills);
     if (fills !== undefined) styles.fills = fills;
@@ -112,8 +132,8 @@ export const serializeStyles = async (node: any) => {
 
   if ("strokes" in node) {
     if (node.strokeStyleId && typeof node.strokeStyleId === "string") {
-      const style = await figma.getStyleByIdAsync(node.strokeStyleId);
-      if (style) styles.strokeStyle = style.name;
+      const name = await styleName(node.strokeStyleId);
+      if (name) styles.strokeStyle = name;
     }
     const strokes = serializePaints(node.strokes);
     if (strokes !== undefined) styles.strokes = strokes;
@@ -135,8 +155,8 @@ export const serializeStyles = async (node: any) => {
 
   if ("effects" in node) {
     if (node.effectStyleId && typeof node.effectStyleId === "string") {
-      const style = await figma.getStyleByIdAsync(node.effectStyleId);
-      if (style) styles.effectStyle = style.name;
+      const name = await styleName(node.effectStyleId);
+      if (name) styles.effectStyle = name;
     }
     const effects = serializeEffects(node.effects);
     if (effects !== undefined) styles.effects = effects;
@@ -175,7 +195,7 @@ export const serializeText = async (node: any, base: any) => {
 
   const textStyleName =
     node.textStyleId && typeof node.textStyleId === "string"
-      ? ((await figma.getStyleByIdAsync(node.textStyleId))?.name ?? undefined)
+      ? await styleName(node.textStyleId)
       : undefined;
 
   return Object.assign({}, base, {
@@ -200,7 +220,11 @@ export const serializeText = async (node: any, base: any) => {
   });
 };
 
-export const serializeNode = async (node: any): Promise<any> => {
+// `depth` caps how many levels of children are serialized. At the cut-off the
+// node reports `childCount` instead of `children`, matching what
+// get_design_context returns for a truncated branch. Callers that want the whole
+// subtree (get_document, get_node) leave it unset.
+export const serializeNode = async (node: any, depth = Infinity): Promise<any> => {
   const styles = await serializeStyles(node);
   const base = {
     id: node.id,
@@ -211,8 +235,13 @@ export const serializeNode = async (node: any): Promise<any> => {
   };
   if (node.type === "TEXT") return serializeText(node, base);
   if ("children" in node) {
+    if (depth <= 0) {
+      return Object.assign({}, base, { childCount: node.children.length });
+    }
     return Object.assign({}, base, {
-      children: await Promise.all(node.children.map((child: any) => serializeNode(child))),
+      children: await Promise.all(
+        node.children.map((child: any) => serializeNode(child, depth - 1)),
+      ),
     });
   }
   return base;
@@ -229,8 +258,14 @@ export const deduplicateStyles = (tree: any): { tree: any; globalVars: Record<st
     if (!node || typeof node !== "object") return;
     const s = node.styles;
     if (s) {
-      if (Array.isArray(s.fills)) counts.set(JSON.stringify(s.fills), (counts.get(JSON.stringify(s.fills)) ?? 0) + 1);
-      if (Array.isArray(s.strokes)) counts.set(JSON.stringify(s.strokes), (counts.get(JSON.stringify(s.strokes)) ?? 0) + 1);
+      if (Array.isArray(s.fills)) {
+        const k = JSON.stringify(s.fills);
+        counts.set(k, (counts.get(k) ?? 0) + 1);
+      }
+      if (Array.isArray(s.strokes)) {
+        const k = JSON.stringify(s.strokes);
+        counts.set(k, (counts.get(k) ?? 0) + 1);
+      }
     }
     if (Array.isArray(node.children)) node.children.forEach(countWalk);
   };

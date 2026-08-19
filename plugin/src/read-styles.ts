@@ -145,15 +145,14 @@ export const handleReadStyleRequest = async (request: any) => {
         const node = await figma.getNodeByIdAsync(nodeId);
         if (!node) throw new Error(`Node not found: ${nodeId}`);
         const mergedAnnotations: any[] = [];
-        const collect = async (n: any) => {
+        const collect = (n: any) => {
           const anns = nodeAnnotations(n);
           if (anns)
             for (const a of anns)
               mergedAnnotations.push({ nodeId: n.id, annotation: a });
-          if ("children" in n)
-            for (const child of n.children) await collect(child);
+          if ("children" in n) for (const child of n.children) collect(child);
         };
-        await collect(node);
+        collect(node);
         return {
           type: request.type,
           requestId: request.requestId,
@@ -165,14 +164,13 @@ export const handleReadStyleRequest = async (request: any) => {
         };
       }
       const annotated: any[] = [];
-      const processNode = async (n: any) => {
+      const processNode = (n: any) => {
         const anns = nodeAnnotations(n);
         if (anns && anns.length > 0)
           annotated.push({ nodeId: n.id, name: n.name, annotations: anns });
-        if ("children" in n)
-          for (const child of n.children) await processNode(child);
+        if ("children" in n) for (const child of n.children) processNode(child);
       };
-      await processNode(figma.currentPage);
+      processNode(figma.currentPage);
       return {
         type: request.type,
         requestId: request.requestId,

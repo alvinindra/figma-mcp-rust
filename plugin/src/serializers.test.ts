@@ -12,16 +12,24 @@ import {
   serializeText,
   serializeNode,
   serializeEffects,
+  clearStyleCache,
 } from "./serializers";
 
 // ── Figma global mock ─────────────────────────────────────────────────────────
 
 let mockGetStyleByIdAsync: (id: string) => Promise<{ name: string } | null>;
 
+let styleLookups: string[];
+
 beforeEach(() => {
+  clearStyleCache();
+  styleLookups = [];
   mockGetStyleByIdAsync = async (_id: string) => null;
   (globalThis as any).figma = {
-    getStyleByIdAsync: (id: string) => mockGetStyleByIdAsync(id),
+    getStyleByIdAsync: (id: string) => {
+      styleLookups.push(id);
+      return mockGetStyleByIdAsync(id);
+    },
   };
 });
 
@@ -589,5 +597,69 @@ describe("serializeNode", () => {
     const result = await serializeNode(node);
     expect(result.children).toHaveLength(1);
     expect(result.children[0].id).toBe("1:4");
+  });
+
+  // Depth limiting is what keeps get_design_context from serializing the whole
+  // page at every level. Without it the tool re-walks the subtree depth+1 times.
+  it("stops at the depth limit and reports childCount instead of children", async () => {
+    const leaf = (id: string) => ({
+      id, name: "Leaf", type: "RECTANGLE", x: 0, y: 0, width: 1, height: 1,
+    });
+    const node = {
+      id: "1:0", name: "Root", type: "FRAME", x: 0, y: 0, width: 10, height: 10,
+      children: [
+        {
+          id: "1:1", name: "Mid", type: "FRAME", x: 0, y: 0, width: 5, height: 5,
+          children: [leaf("1:2"), leaf("1:3")],
+        },
+      ],
+    };
+
+    const d0 = await serializeNode(node, 0);
+    expect(d0.children).toBeUndefined();
+    expect(d0.childCount).toBe(1);
+
+    const d1 = await serializeNode(node, 1);
+    expect(d1.children).toHaveLength(1);
+    expect(d1.children[0].children).toBeUndefined();
+    expect(d1.children[0].childCount).toBe(2);
+
+    const d2 = await serializeNode(node, 2);
+    expect(d2.children[0].children).toHaveLength(2);
+    expect(d2.children[0].children[0].id).toBe("1:2");
+  });
+
+  it("looks a repeated style id up only once", async () => {
+    mockGetStyleByIdAsync = async (id: string) => ({ name: `name-of-${id}` });
+    const boxes = [1, 2, 3].map((i) => ({
+      id: `1:${i}`, name: "Box", type: "RECTANGLE",
+      x: 0, y: 0, width: 1, height: 1,
+      fills: [], fillStyleId: "shared-style",
+    }));
+    const node = {
+      id: "1:0", name: "Root", type: "FRAME",
+      x: 0, y: 0, width: 10, height: 10, children: boxes,
+    };
+    const result = await serializeNode(node);
+    expect(result.children.map((c: any) => c.styles.fillStyle)).toEqual([
+      "name-of-shared-style",
+      "name-of-shared-style",
+      "name-of-shared-style",
+    ]);
+    expect(styleLookups).toEqual(["shared-style"]);
+  });
+
+  it("re-reads a style id after the cache is cleared", async () => {
+    const node = {
+      id: "1:1", name: "Box", type: "RECTANGLE",
+      x: 0, y: 0, width: 1, height: 1,
+      fills: [], fillStyleId: "s",
+    };
+    mockGetStyleByIdAsync = async () => ({ name: "before" });
+    expect((await serializeNode(node)).styles.fillStyle).toBe("before");
+    mockGetStyleByIdAsync = async () => ({ name: "after" });
+    expect((await serializeNode(node)).styles.fillStyle).toBe("before");
+    clearStyleCache();
+    expect((await serializeNode(node)).styles.fillStyle).toBe("after");
   });
 });
