@@ -2,7 +2,7 @@
 name = "figma-mcp-rust"
 version = "0.2.0"
 edition = "2021"
-rust-version = "1.78"
+rust-version = "1.88"
 description = "Figma MCP server with full read/write access via plugin. No API token, no rate limits"
 license = "MIT"
 repository = "https://github.com/alvinindra/figma-mcp-rust"
@@ -18,7 +18,7 @@ path = "src/lib.rs"
 
 [dependencies]
 # MCP
-rmcp = { version = "3", features = ["server", "macros", "schemars", "transport-io"] }
+rmcp = { version = "3.5.1", features = ["server", "macros", "schemars", "transport-io"] }
 schemars = "1.0"
 
 # Async runtime

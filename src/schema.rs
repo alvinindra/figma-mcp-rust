@@ -150,7 +150,7 @@ pub fn validate_rpc(
             }
             if tool == "scan_nodes_by_types" {
                 let types = array_param(params, "types");
-                if types.map_or(true, |a| a.is_empty()) {
+                if types.is_none_or(|a| a.is_empty()) {
                     return Some("types must be a non-empty array".into());
                 }
             }

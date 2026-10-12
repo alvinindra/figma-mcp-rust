@@ -8,10 +8,10 @@ use std::sync::{Arc, OnceLock};
 
 use rmcp::handler::server::ServerHandler;
 use rmcp::model::{
-    CallToolRequestParams, CallToolResponse, CallToolResult, ContentBlock, ErrorData,
+    CacheScope, CallToolRequestParams, CallToolResponse, CallToolResult, ContentBlock, ErrorData,
     GetPromptRequestParams, GetPromptResponse, GetPromptResult, Implementation, ListPromptsResult,
     ListToolsResult, PaginatedRequestParams, Prompt, PromptMessage, Role, ServerCapabilities,
-    ServerInfo, Tool,
+    ServerConfig, Tool,
 };
 use rmcp::service::{NotificationContext, RequestContext, RoleServer};
 
@@ -19,6 +19,10 @@ use crate::node::Node;
 use crate::prompts;
 use crate::schema::validate_rpc;
 use crate::tools::{self, extract_node_ids};
+
+/// Tool and prompt lists are compiled in and identical for every client, so
+/// 2026-07-28 peers may cache them (SEP-2549) instead of refetching 73 schemas.
+const LIST_TTL_MS: u64 = 60 * 60 * 1000;
 
 #[derive(Clone)]
 pub struct Handler {
@@ -36,8 +40,8 @@ impl Handler {
 }
 
 impl ServerHandler for Handler {
-    fn get_info(&self) -> ServerInfo {
-        ServerInfo::new(
+    fn get_info(&self) -> ServerConfig {
+        ServerConfig::new(
             ServerCapabilities::builder()
                 .enable_tools()
                 .enable_prompts()
@@ -57,7 +61,9 @@ impl ServerHandler for Handler {
         _request: Option<PaginatedRequestParams>,
         _context: RequestContext<RoleServer>,
     ) -> Result<ListToolsResult, ErrorData> {
-        Ok(ListToolsResult::with_all_items(tool_list().clone()))
+        Ok(ListToolsResult::with_all_items(tool_list().clone())
+            .with_ttl_ms(LIST_TTL_MS)
+            .with_cache_scope(CacheScope::Public))
     }
 
     async fn call_tool(
@@ -124,7 +130,9 @@ impl ServerHandler for Handler {
             .iter()
             .map(|p| Prompt::new(p.name, Some(p.description), None))
             .collect();
-        Ok(ListPromptsResult::with_all_items(prompts))
+        Ok(ListPromptsResult::with_all_items(prompts)
+            .with_ttl_ms(LIST_TTL_MS)
+            .with_cache_scope(CacheScope::Public))
     }
 
     async fn get_prompt(
