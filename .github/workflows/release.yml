@@ -4,6 +4,9 @@ on:
   push:
     tags:
       - 'v*'
+  # Retry the MCP Registry publish alone, for the version in server.json on the
+  # chosen ref, when it failed after npm already took the release.
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -12,6 +15,7 @@ permissions:
 jobs:
   build:
     name: Build ${{ matrix.target }}
+    if: github.event_name == 'push'
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
@@ -138,11 +142,31 @@ jobs:
           npm version "$VERSION" --no-git-tag-version --allow-same-version
           npm publish --access public
 
+  registry:
+    name: Publish to MCP Registry
+    needs: publish
+    # Own job so `gh run rerun --failed` retries just this, not npm publish.
+    if: ${{ !cancelled() && (needs.publish.result == 'success' || github.event_name == 'workflow_dispatch') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
       - name: Set version in server.json
-        env:
-          VERSION: ${{ steps.version.outputs.value }}
+        if: github.ref_type == 'tag'
         run: |
+          VERSION=${GITHUB_REF_NAME#v}
           jq --arg v "$VERSION" '.version = $v | .packages[0].version = $v' server.json > server.tmp && mv server.tmp server.json
+
+      # npm accepts a publish before it serves it, and the registry validates
+      # against what npm serves.
+      - name: Wait for npm to serve the version
+        run: |
+          VERSION=$(jq -r .version server.json)
+          for i in $(seq 1 40); do
+            npm view "@alvinindra/figma-mcp-rust@$VERSION" version 2>/dev/null | grep -qx "$VERSION" && exit 0
+            sleep 15
+          done
+          echo "npm still not serving $VERSION after 10m"; exit 1
 
       - name: Install mcp-publisher
         run: |
