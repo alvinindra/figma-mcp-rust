@@ -101,8 +101,11 @@ pub fn extract_node_ids(
 ///
 /// The MCP schema keeps the names it has always advertised; the plugin reads
 /// camelCase. Anything listed here is renamed before the call reaches the bridge.
-pub const PARAM_ALIASES: &[(&str, &str, &str)] =
-    &[("get_design_context", "dedupe_components", "dedupeComponents")];
+pub const PARAM_ALIASES: &[(&str, &str, &str)] = &[(
+    "get_design_context",
+    "dedupe_components",
+    "dedupeComponents",
+)];
 
 /// Rename schema argument names to the keys the plugin reads (see [`PARAM_ALIASES`]).
 /// The documented name wins when a caller sends both spellings.
