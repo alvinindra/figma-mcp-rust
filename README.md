@@ -14,7 +14,7 @@ Figma MCP: Free, No Rate Limits
   <a href="https://github.com/alvinindra/figma-mcp-rust/stargazers"><img src="https://img.shields.io/github/stars/alvinindra/figma-mcp-rust?style=social" alt="GitHub stars" /></a>
 </p>
 
-Open-source Figma MCP server with full read/write access via plugin. No REST API, no rate limits. Turn text into designs and designs into real code. Works with Cursor, Claude, GitHub Copilot, and any MCP-compatible AI tool.
+Open-source Figma MCP server with full read/write access via plugin. No REST API, no rate limits. Turn text into designs and designs into real code. Works with Cursor, Claude, GitHub Copilot, Antigravity, and any MCP-compatible AI tool.
 
 **Highlights**
 - No Figma API token required
@@ -79,6 +79,22 @@ codex mcp add figma-mcp-rust -- npx -y @alvinindra/figma-mcp-rust@latest
   }
 }
 ```
+
+**Antigravity**
+
+In the Agent panel, open **… → MCP Servers → Manage MCP Servers → View raw config**, then add the server to `mcp_config.json`:
+```json
+{
+  "mcpServers": {
+    "figma-mcp-rust": {
+      "command": "npx",
+      "args": ["-y", "@alvinindra/figma-mcp-rust@latest"]
+    }
+  }
+}
+```
+
+Leave out the `type` field, because Antigravity rejects it. If the tools don't show up, put the absolute path to `npx` (from `which npx`) in `command` and restart Antigravity.
 
 **.vscode/mcp.json** (Cursor / VS Code / GitHub Copilot)
 ```json
