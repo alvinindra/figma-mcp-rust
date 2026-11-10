@@ -1,4 +1,4 @@
-.PHONY: build build-rust build-ts test test-rust test-ts coverage clean
+.PHONY: build build-rust build-ts test test-rust test-ts coverage clean changelog
 
 # ───────────────────────────────────────────────────────────────────────
 # Build
@@ -31,3 +31,13 @@ coverage:
 clean:
 	cargo clean
 	rm -rf target plugin/dist
+
+# ───────────────────────────────────────────────────────────────────────
+# Release
+#
+# Regenerate CHANGELOG.md from Conventional Commits. Pass the tag you are
+# about to cut so its section is dated instead of "Unreleased":
+#   make changelog TAG=v0.2.2
+
+changelog:
+	npx -y git-cliff@2 $(if $(TAG),--tag $(TAG)) -o CHANGELOG.md
