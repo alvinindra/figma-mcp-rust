@@ -4,21 +4,23 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.2.2] - 2026-11-10
 
 ### Fixed
 
-- **server:** Honor dedupe_components in get_design_context ([7d4d171](https://github.com/alvinindra/figma-mcp-rust/commit/7d4d17143a38b0b10774252484963e9cd3d3f22e))
+- **server:** Honor dedupe_components in get_design_context ([25668c9](https://github.com/alvinindra/figma-mcp-rust/commit/25668c92fecfbb63111f54738453410cc9a6372c))
 
 ### Documentation
 
-- **readme:** Add antigravity setup ([3667335](https://github.com/alvinindra/figma-mcp-rust/commit/366733535a106f4ed60f24208411aa736aa50402))
+- **readme:** Add antigravity setup ([45f3d8d](https://github.com/alvinindra/figma-mcp-rust/commit/45f3d8d798c84ca3200ea57c44739733a9369a6a))
+- Add changelog ([1f31230](https://github.com/alvinindra/figma-mcp-rust/commit/1f31230d77d5508db30aeacdeff60a3bd7928e81))
 
 ### Build & CI
 
 - **release:** Retry MCP Registry publish without re-running npm ([1b10632](https://github.com/alvinindra/figma-mcp-rust/commit/1b10632640fe1430226915e3bb167679f27e5ad2))
-- **release:** Build release notes from conventional commits ([1a5992a](https://github.com/alvinindra/figma-mcp-rust/commit/1a5992a45f5abd20308fa5e3874e714b7f1215cd))
+- **release:** Build release notes from conventional commits ([7bb4392](https://github.com/alvinindra/figma-mcp-rust/commit/7bb439244b0d90f4848d779ae89b8bbf0b64d231))
 
+**Full diff**: [v0.2.1...v0.2.2](https://github.com/alvinindra/figma-mcp-rust/compare/v0.2.1...v0.2.2)
 
 ## [0.2.1] - 2026-10-12
 
