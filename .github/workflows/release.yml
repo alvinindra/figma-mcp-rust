@@ -31,13 +31,13 @@ jobs:
             bin: figma-mcp-rust
             cross: true
           - target: x86_64-apple-darwin
-            # Cross-compile from Apple Silicon (macos-14): macos-13 Intel runners
+            # Cross-compile from Apple Silicon (macos-15): Intel runners
             # have unpredictable queue times and are being deprecated.
-            runner: macos-14
+            runner: macos-15
             slug: darwin-x64
             bin: figma-mcp-rust
           - target: aarch64-apple-darwin
-            runner: macos-14
+            runner: macos-15
             slug: darwin-arm64
             bin: figma-mcp-rust
           - target: x86_64-pc-windows-msvc
