@@ -95,3 +95,24 @@ pub fn extract_node_ids(
         }
     }
 }
+
+/// Public (MCP schema) argument names that the Figma plugin reads under a
+/// different key, as `(tool, schema_name, plugin_name)`.
+///
+/// The MCP schema keeps the names it has always advertised; the plugin reads
+/// camelCase. Anything listed here is renamed before the call reaches the bridge.
+pub const PARAM_ALIASES: &[(&str, &str, &str)] =
+    &[("get_design_context", "dedupe_components", "dedupeComponents")];
+
+/// Rename schema argument names to the keys the plugin reads (see [`PARAM_ALIASES`]).
+/// The documented name wins when a caller sends both spellings.
+pub fn to_plugin_params(tool: &str, params: &mut Map<String, Value>) {
+    for &(t, schema_name, plugin_name) in PARAM_ALIASES {
+        if t != tool {
+            continue;
+        }
+        if let Some(v) = params.remove(schema_name) {
+            params.insert(plugin_name.to_string(), v);
+        }
+    }
+}

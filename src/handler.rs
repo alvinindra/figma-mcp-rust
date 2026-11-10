@@ -102,6 +102,8 @@ impl ServerHandler for Handler {
             }
         }
 
+        tools::to_plugin_params(def.name, &mut params);
+
         if let Some(err) = validate_rpc(def.name, &node_ids, &params) {
             return Ok(error_result(&err));
         }
