@@ -19,6 +19,7 @@ and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - **release:** Retry MCP Registry publish without re-running npm ([1b10632](https://github.com/alvinindra/figma-mcp-rust/commit/1b10632640fe1430226915e3bb167679f27e5ad2))
 - **release:** Build release notes from conventional commits ([7bb4392](https://github.com/alvinindra/figma-mcp-rust/commit/7bb439244b0d90f4848d779ae89b8bbf0b64d231))
+- **release:** Build macOS binaries on macos-15 runners ([574f5bd](https://github.com/alvinindra/figma-mcp-rust/commit/574f5bd072c45ca2ff3d2905594780ea94bad369))
 
 **Full diff**: [v0.2.1...v0.2.2](https://github.com/alvinindra/figma-mcp-rust/compare/v0.2.1...v0.2.2)
 
