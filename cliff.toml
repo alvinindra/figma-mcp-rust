@@ -1,0 +1,51 @@
+# git-cliff config: builds CHANGELOG.md and GitHub release notes from
+# Conventional Commits. https://git-cliff.org/docs/configuration
+
+[changelog]
+header = """
+# Changelog
+
+All notable changes to this project are documented here.
+The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
+and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+"""
+body = """
+{% if version -%}
+## [{{ version | trim_start_matches(pat="v") }}] - {{ timestamp | date(format="%Y-%m-%d") }}
+{% else -%}
+## [Unreleased]
+{% endif -%}
+{% for group, commits in commits | group_by(attribute="group") %}
+### {{ group | striptags | trim | upper_first }}
+{% for commit in commits %}
+- {% if commit.breaking %}**BREAKING:** {% endif %}{% if commit.scope and commit.scope != "deps" %}**{{ commit.scope }}:** {% endif %}{{ commit.message | split(pat="\n") | first | trim | upper_first }} ([{{ commit.id | truncate(length=7, end="") }}](https://github.com/alvinindra/figma-mcp-rust/commit/{{ commit.id }}))\
+{% endfor %}
+{% endfor %}
+{% if version and previous.version -%}
+**Full diff**: [{{ previous.version }}...{{ version }}](https://github.com/alvinindra/figma-mcp-rust/compare/{{ previous.version }}...{{ version }})
+{% endif %}
+"""
+trim = true
+# Blank line between releases (trim strips it from the templates).
+postprocessors = [{ pattern = "\\z", replace = "\n" }]
+
+[git]
+conventional_commits = true
+filter_unconventional = true
+split_commits = false
+protect_breaking_commits = true
+filter_commits = false
+tag_pattern = "v[0-9].*"
+sort_commits = "oldest"
+commit_parsers = [
+  { message = "^chore\\(release\\)", skip = true },
+  { message = "^feat", group = "<!-- 0 -->Added" },
+  { message = "^fix", group = "<!-- 1 -->Fixed" },
+  { message = "^perf", group = "<!-- 2 -->Performance" },
+  { message = "^refactor", group = "<!-- 3 -->Changed" },
+  { message = "^revert", group = "<!-- 4 -->Reverted" },
+  { message = "^docs", group = "<!-- 5 -->Documentation" },
+  { message = "^build\\(deps\\)", group = "<!-- 6 -->Dependencies" },
+  { message = "^(build|ci)", group = "<!-- 7 -->Build & CI" },
+  { message = "^(chore|style|test)", skip = true },
+]
