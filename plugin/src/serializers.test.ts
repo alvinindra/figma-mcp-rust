@@ -13,6 +13,7 @@ import {
   serializeNode,
   serializeEffects,
   clearStyleCache,
+  serializeExtra,
 } from "./serializers";
 
 // ── Figma global mock ─────────────────────────────────────────────────────────
@@ -661,5 +662,93 @@ describe("serializeNode", () => {
     expect((await serializeNode(node)).styles.fillStyle).toBe("before");
     clearStyleCache();
     expect((await serializeNode(node)).styles.fillStyle).toBe("after");
+  });
+});
+
+// ── serializeExtra ───────────────────────────────────────────────────────────
+
+describe("serializeExtra", () => {
+  it("returns an empty object for a plain node", () => {
+    expect(serializeExtra({ type: "RECTANGLE", visible: true, opacity: 1, fills: [] })).toEqual({});
+  });
+
+  it("emits visual layer props only when they differ from defaults", () => {
+    const x = serializeExtra({
+      type: "FRAME", visible: false, opacity: 0.5, blendMode: "MULTIPLY",
+      rotation: 15, clipsContent: true,
+    });
+    expect(x).toEqual({
+      visible: false, opacity: 0.5, blendMode: "MULTIPLY", rotation: 15, clipsContent: true,
+    });
+  });
+
+  it("keeps gradient stops and transform that the solid-only serializer drops", () => {
+    const x = serializeExtra({
+      type: "RECTANGLE",
+      fills: [{
+        type: "GRADIENT_LINEAR",
+        gradientStops: [
+          { position: 0, color: { r: 1, g: 0, b: 0, a: 1 } },
+          { position: 1, color: { r: 0, g: 0, b: 1, a: 0.5 } },
+        ],
+        gradientTransform: [[1, 0, 0], [0, 1, 0]],
+      }],
+    });
+    expect(x.fillsFull[0].type).toBe("GRADIENT_LINEAR");
+    expect(x.fillsFull[0].gradientStops).toHaveLength(2);
+    expect(x.fillsFull[0].gradientStops[1].position).toBe(1);
+    expect(x.fillsFull[0].gradientTransform).toEqual([[1, 0, 0], [0, 1, 0]]);
+  });
+
+  it("does not duplicate fills that are all visible normal solids", () => {
+    const x = serializeExtra({
+      type: "RECTANGLE",
+      fills: [{ type: "SOLID", color: { r: 1, g: 1, b: 1 } }],
+    });
+    expect(x.fillsFull).toBeUndefined();
+  });
+
+  it("reports mixed corner radii per corner", () => {
+    const x = serializeExtra({
+      type: "RECTANGLE", cornerRadius: Symbol(),
+      topLeftRadius: 1, topRightRadius: 2, bottomRightRadius: 3, bottomLeftRadius: 4,
+    });
+    expect(x.cornerRadii).toEqual({ topLeft: 1, topRight: 2, bottomRight: 3, bottomLeft: 4 });
+  });
+
+  it("includes Motion keyframe data but ignores timelines alone", () => {
+    expect(serializeExtra({ type: "FRAME", timelines: [{ id: "t" }] }).motion).toBeUndefined();
+    const x = serializeExtra({
+      type: "FRAME",
+      timelines: [{ id: "t" }],
+      manualKeyframeTracks: [{ property: "opacity", keyframes: [{ time: 0, value: 0 }] }],
+    });
+    expect(x.motion.manualKeyframeTracks[0].property).toBe("opacity");
+    expect(x.motion.timelines).toEqual([{ id: "t" }]);
+  });
+
+  it("does not throw when a Motion getter throws", () => {
+    const node: any = { type: "FRAME" };
+    Object.defineProperty(node, "animations", {
+      enumerable: true,
+      get() { throw new Error("unsupported"); },
+    });
+    const x = serializeExtra(node);
+    expect(x.motion.animations.__error).toContain("unsupported");
+  });
+
+  it("emits styled text segments only for mixed text", () => {
+    const segments = [
+      { start: 0, end: 2, characters: "Hi", fontName: { family: "A", style: "Bold" }, fontSize: 12,
+        fontWeight: 700, fills: [], lineHeight: { unit: "AUTO" }, letterSpacing: { unit: "PIXELS", value: 0 },
+        textCase: "ORIGINAL", textDecoration: "NONE" },
+    ];
+    const text = (fontSize: any) => ({
+      type: "TEXT", fontSize, getStyledTextSegments: () => segments,
+    });
+    expect(serializeExtra(text(12)).textSegments).toBeUndefined();
+    const x = serializeExtra(text(Symbol()));
+    expect(x.textSegments).toHaveLength(1);
+    expect(x.textSegments[0].characters).toBe("Hi");
   });
 });

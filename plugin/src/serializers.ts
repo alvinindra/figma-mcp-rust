@@ -232,6 +232,7 @@ export const serializeNode = async (node: any, depth = Infinity): Promise<any> =
     type: node.type,
     bounds: getBounds(node),
     styles,
+    ...serializeExtra(node),
   };
   if (node.type === "TEXT") return serializeText(node, base);
   if ("children" in node) {
@@ -329,4 +330,185 @@ export const serializeVariableValue = (value: any) => {
   }
 
   return value;
+};
+
+// ---------------------------------------------------------------------------
+// Extra fidelity fields for design-to-code.
+// Adds non-solid paints (gradients / images / video), layer visual props,
+// layout, mixed text segments, and Motion data (keyframe tracks, animations,
+// animation styles). Fields are emitted only when they carry information, and
+// Motion and text-segment reads are guarded so an unsupported API never
+// breaks a call.
+// ---------------------------------------------------------------------------
+
+const jsonSafe = (value: any) => {
+  try {
+    return JSON.parse(
+      JSON.stringify(value, (_k, v) => (typeof v === "symbol" ? "mixed" : v)),
+    );
+  } catch (_e) {
+    return undefined;
+  }
+};
+
+const tryRead = (fn: () => any) => {
+  try {
+    return fn();
+  } catch (e) {
+    return { __error: String(e && (e as any).message ? (e as any).message : e) };
+  }
+};
+
+const isEmpty = (v: any) =>
+  v == null ||
+  (Array.isArray(v) && v.length === 0) ||
+  (typeof v === "object" && !Array.isArray(v) && Object.keys(v).length === 0);
+
+const serializeFullPaint = (p: any) => {
+  const out: any = { type: p.type };
+  if (p.visible === false) out.visible = false;
+  if (p.opacity != null && p.opacity !== 1) out.opacity = p.opacity;
+  if (p.blendMode && p.blendMode !== "NORMAL") out.blendMode = p.blendMode;
+  if (p.type === "SOLID") {
+    out.color = serializeRgba({ ...p.color, a: 1 });
+  } else if (typeof p.type === "string" && p.type.startsWith("GRADIENT_")) {
+    out.gradientStops = (p.gradientStops || []).map((s: any) => ({
+      position: s.position,
+      color: serializeRgba(s.color),
+    }));
+    out.gradientTransform = jsonSafe(p.gradientTransform);
+  } else if (p.type === "IMAGE") {
+    out.scaleMode = p.scaleMode;
+    out.imageHash = p.imageHash;
+    if (p.imageTransform) out.imageTransform = jsonSafe(p.imageTransform);
+    if (p.scalingFactor != null) out.scalingFactor = p.scalingFactor;
+    if (p.rotation) out.rotation = p.rotation;
+    if (p.filters) out.filters = jsonSafe(p.filters);
+  } else if (p.type === "VIDEO") {
+    out.scaleMode = p.scaleMode;
+    out.videoHash = p.videoHash;
+  } else {
+    Object.assign(out, jsonSafe(p));
+  }
+  return out;
+};
+
+const serializeFullPaints = (paints: any) => {
+  if (isMixed(paints)) return "mixed";
+  if (!Array.isArray(paints) || paints.length === 0) return undefined;
+  // Only emit when something is lost by the solid-only serializer.
+  const lossy = paints.some(
+    (p: any) => p.type !== "SOLID" || p.visible === false || (p.blendMode && p.blendMode !== "NORMAL"),
+  );
+  return lossy ? paints.map(serializeFullPaint) : undefined;
+};
+
+const MOTION_KEYS = ["timelines", "manualKeyframeTracks", "animations", "animationStyles"];
+
+const serializeMotion = (node: any) => {
+  const motion: any = {};
+  for (const key of MOTION_KEYS) {
+    if (!(key in node)) continue;
+    const value = tryRead(() => jsonSafe(node[key]));
+    if (!isEmpty(value)) motion[key] = value;
+  }
+  // timelines alone (shared by every descendant) is not interesting.
+  const keys = Object.keys(motion);
+  if (keys.length === 0 || (keys.length === 1 && keys[0] === "timelines")) return undefined;
+  return motion;
+};
+
+const serializeTextSegments = (node: any) => {
+  if (node.type !== "TEXT" || typeof node.getStyledTextSegments !== "function") return undefined;
+  const fields = [
+    "fontName", "fontSize", "fontWeight", "fills", "lineHeight",
+    "letterSpacing", "textCase", "textDecoration",
+  ];
+  const mixed = fields.some((f) => isMixed(node[f]));
+  if (!mixed) return undefined;
+  return tryRead(() =>
+    node.getStyledTextSegments(fields).map((s: any) => ({
+      start: s.start,
+      end: s.end,
+      characters: s.characters,
+      fontName: s.fontName,
+      fontSize: s.fontSize,
+      fontWeight: s.fontWeight,
+      fills: serializeFullPaints(s.fills) ?? serializePaints(s.fills),
+      lineHeight: jsonSafe(s.lineHeight),
+      letterSpacing: jsonSafe(s.letterSpacing),
+      textCase: s.textCase,
+      textDecoration: s.textDecoration,
+    })),
+  );
+};
+
+export const serializeExtra = (node: any) => {
+  const x: any = {};
+  if (node.visible === false) x.visible = false;
+  if ("opacity" in node && node.opacity !== 1) x.opacity = node.opacity;
+  if ("blendMode" in node && node.blendMode && node.blendMode !== "PASS_THROUGH" && node.blendMode !== "NORMAL")
+    x.blendMode = node.blendMode;
+  if ("rotation" in node && node.rotation) x.rotation = node.rotation;
+  if ("isMask" in node && node.isMask) {
+    x.isMask = true;
+    if ("maskType" in node) x.maskType = node.maskType;
+  }
+  if ("clipsContent" in node && node.clipsContent) x.clipsContent = true;
+
+  if ("fills" in node) {
+    const f = serializeFullPaints(node.fills);
+    if (f !== undefined) x.fillsFull = f;
+  }
+  if ("strokes" in node && Array.isArray(node.strokes) && node.strokes.length > 0) {
+    const s = serializeFullPaints(node.strokes);
+    if (s !== undefined) x.strokesFull = s;
+    x.stroke = {
+      weight: isMixed(node.strokeWeight) ? jsonSafe({
+        top: node.strokeTopWeight, right: node.strokeRightWeight,
+        bottom: node.strokeBottomWeight, left: node.strokeLeftWeight,
+      }) : node.strokeWeight,
+      align: node.strokeAlign,
+      dashPattern: isEmpty(node.dashPattern) ? undefined : jsonSafe(node.dashPattern),
+    };
+  }
+  if ("cornerRadius" in node && isMixed(node.cornerRadius)) {
+    x.cornerRadii = {
+      topLeft: node.topLeftRadius, topRight: node.topRightRadius,
+      bottomRight: node.bottomRightRadius, bottomLeft: node.bottomLeftRadius,
+    };
+  }
+  if ("cornerSmoothing" in node && node.cornerSmoothing) x.cornerSmoothing = node.cornerSmoothing;
+
+  if ("layoutMode" in node && node.layoutMode && node.layoutMode !== "NONE") {
+    x.layout = {
+      mode: node.layoutMode,
+      itemSpacing: node.itemSpacing,
+      primaryAxisAlignItems: node.primaryAxisAlignItems,
+      counterAxisAlignItems: node.counterAxisAlignItems,
+      wrap: node.layoutWrap,
+    };
+  }
+  if ("layoutSizingHorizontal" in node) {
+    x.sizing = { h: node.layoutSizingHorizontal, v: node.layoutSizingVertical };
+  }
+  if ("layoutPositioning" in node && node.layoutPositioning === "ABSOLUTE") x.absolute = true;
+  if ("constraints" in node && node.constraints) x.constraints = jsonSafe(node.constraints);
+
+  if (node.type === "TEXT") {
+    x.text = {
+      autoResize: node.textAutoResize,
+      alignVertical: node.textAlignVertical,
+      textCase: isMixed(node.textCase) ? "mixed" : node.textCase,
+      truncation: node.textTruncation,
+      maxLines: node.maxLines,
+      paragraphSpacing: node.paragraphSpacing || undefined,
+    };
+    const segs = serializeTextSegments(node);
+    if (segs) x.textSegments = segs;
+  }
+
+  const motion = serializeMotion(node);
+  if (motion) x.motion = motion;
+  return x;
 };
