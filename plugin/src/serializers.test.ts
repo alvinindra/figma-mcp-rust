@@ -727,14 +727,52 @@ describe("serializeExtra", () => {
     expect(x.motion.timelines).toEqual([{ id: "t" }]);
   });
 
-  it("does not throw when a Motion getter throws", () => {
+  it("skips a Motion getter that throws and keeps the readable ones", () => {
     const node: any = { type: "FRAME" };
     Object.defineProperty(node, "animations", {
       enumerable: true,
       get() { throw new Error("unsupported"); },
     });
-    const x = serializeExtra(node);
-    expect(x.motion.animations.__error).toContain("unsupported");
+    expect(serializeExtra(node)).toEqual({});
+    node.animationStyles = [{ type: "FIGMA", id: "a", styleId: "s", name: "Fade in" }];
+    expect(serializeExtra(node).motion).toEqual({ animationStyles: node.animationStyles });
+  });
+
+  it("omits layout, sizing, constraint and text values that match Figma defaults", () => {
+    expect(serializeExtra({
+      type: "TEXT", layoutSizingHorizontal: "FIXED", layoutSizingVertical: "FIXED",
+      layoutMode: "NONE", layoutPositioning: "AUTO",
+      constraints: { horizontal: "MIN", vertical: "MIN" },
+      textAutoResize: "WIDTH_AND_HEIGHT", textAlignVertical: "TOP", textCase: "ORIGINAL",
+      textTruncation: "DISABLED", maxLines: null, paragraphSpacing: 0,
+    })).toEqual({});
+  });
+
+  it("emits layout, sizing, constraint and text values that differ from defaults", () => {
+    const frame = serializeExtra({
+      type: "FRAME", layoutMode: "HORIZONTAL", itemSpacing: 8,
+      primaryAxisAlignItems: "MIN", counterAxisAlignItems: "CENTER",
+      layoutWrap: "WRAP", counterAxisSpacing: 4,
+      layoutSizingHorizontal: "FILL", layoutSizingVertical: "FIXED",
+      layoutPositioning: "ABSOLUTE", constraints: { horizontal: "STRETCH", vertical: "MIN" },
+    });
+    expect(frame).toEqual({
+      layout: {
+        mode: "HORIZONTAL", itemSpacing: 8, primaryAxisAlignItems: "MIN",
+        counterAxisAlignItems: "CENTER", wrap: "WRAP", counterAxisSpacing: 4,
+      },
+      sizing: { h: "FILL", v: "FIXED" },
+      absolute: true,
+      constraints: { horizontal: "STRETCH", vertical: "MIN" },
+    });
+    const text = serializeExtra({
+      type: "TEXT", textAutoResize: "HEIGHT", textAlignVertical: "CENTER", textCase: "UPPER",
+      textTruncation: "ENDING", maxLines: 2, paragraphSpacing: 12,
+    });
+    expect(text.text).toEqual({
+      autoResize: "HEIGHT", alignVertical: "CENTER", textCase: "UPPER",
+      truncation: "ENDING", maxLines: 2, paragraphSpacing: 12,
+    });
   });
 
   it("emits styled text segments only for mixed text", () => {

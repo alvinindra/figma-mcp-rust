@@ -336,9 +336,10 @@ export const serializeVariableValue = (value: any) => {
 // Extra fidelity fields for design-to-code.
 // Adds non-solid paints (gradients / images / video), layer visual props,
 // layout, mixed text segments, and Motion data (keyframe tracks, animations,
-// animation styles). Fields are emitted only when they carry information, and
-// Motion and text-segment reads are guarded so an unsupported API never
-// breaks a call.
+// animation styles). Fields are emitted only when they carry information:
+// serializeNode runs on every node of a tree, so a field that repeats a Figma
+// default would be paid for once per node. Motion and text-segment reads are
+// guarded so an unsupported API never breaks a call.
 // ---------------------------------------------------------------------------
 
 const jsonSafe = (value: any) => {
@@ -409,7 +410,14 @@ const serializeMotion = (node: any) => {
   const motion: any = {};
   for (const key of MOTION_KEYS) {
     if (!(key in node)) continue;
-    const value = tryRead(() => jsonSafe(node[key]));
+    // The Motion API is in beta. A getter that throws would throw for every
+    // node in the tree, so skip the key instead of repeating the error.
+    let value: any;
+    try {
+      value = jsonSafe(node[key]);
+    } catch (_e) {
+      continue;
+    }
     if (!isEmpty(value)) motion[key] = value;
   }
   // timelines alone (shared by every descendant) is not interesting.
@@ -486,24 +494,36 @@ export const serializeExtra = (node: any) => {
       itemSpacing: node.itemSpacing,
       primaryAxisAlignItems: node.primaryAxisAlignItems,
       counterAxisAlignItems: node.counterAxisAlignItems,
-      wrap: node.layoutWrap,
     };
+    if (node.layoutWrap === "WRAP") {
+      x.layout.wrap = "WRAP";
+      if (node.counterAxisSpacing != null) x.layout.counterAxisSpacing = node.counterAxisSpacing;
+    }
   }
+  // FIXED sizing and MIN/MIN constraints are what Figma gives a new node.
   if ("layoutSizingHorizontal" in node) {
-    x.sizing = { h: node.layoutSizingHorizontal, v: node.layoutSizingVertical };
+    const h = node.layoutSizingHorizontal;
+    const v = node.layoutSizingVertical;
+    if ((h && h !== "FIXED") || (v && v !== "FIXED")) x.sizing = { h, v };
   }
   if ("layoutPositioning" in node && node.layoutPositioning === "ABSOLUTE") x.absolute = true;
-  if ("constraints" in node && node.constraints) x.constraints = jsonSafe(node.constraints);
+  if ("constraints" in node && node.constraints) {
+    const { horizontal, vertical } = node.constraints;
+    if (horizontal !== "MIN" || vertical !== "MIN") x.constraints = { horizontal, vertical };
+  }
 
   if (node.type === "TEXT") {
-    x.text = {
-      autoResize: node.textAutoResize,
-      alignVertical: node.textAlignVertical,
-      textCase: isMixed(node.textCase) ? "mixed" : node.textCase,
-      truncation: node.textTruncation,
-      maxLines: node.maxLines,
-      paragraphSpacing: node.paragraphSpacing || undefined,
-    };
+    const text: any = {};
+    if (node.textAutoResize && node.textAutoResize !== "WIDTH_AND_HEIGHT") text.autoResize = node.textAutoResize;
+    if (node.textAlignVertical && node.textAlignVertical !== "TOP") text.alignVertical = node.textAlignVertical;
+    if (isMixed(node.textCase)) text.textCase = "mixed";
+    else if (node.textCase && node.textCase !== "ORIGINAL") text.textCase = node.textCase;
+    if (node.textTruncation && node.textTruncation !== "DISABLED") {
+      text.truncation = node.textTruncation;
+      if (node.maxLines != null) text.maxLines = node.maxLines;
+    }
+    if (node.paragraphSpacing) text.paragraphSpacing = node.paragraphSpacing;
+    if (Object.keys(text).length > 0) x.text = text;
     const segs = serializeTextSegments(node);
     if (segs) x.textSegments = segs;
   }
