@@ -62,6 +62,21 @@
     { "name": "bind_variable_to_node", "description": "Bind a variable to a node property" },
     { "name": "delete_variable", "description": "Delete a variable or entire collection" },
     { "name": "navigate_to_page", "description": "Navigate to a page by ID or name" },
-    { "name": "export_tokens", "description": "Export design tokens" }
+    { "name": "export_tokens", "description": "Export design tokens" },
+    { "name": "create_section", "description": "Create a Figma Section node to organise frames on a page" },
+    { "name": "set_visible", "description": "Show or hide one or more nodes" },
+    { "name": "lock_nodes", "description": "Lock one or more nodes to prevent accidental edits" },
+    { "name": "unlock_nodes", "description": "Unlock one or more nodes" },
+    { "name": "rotate_nodes", "description": "Set absolute rotation in degrees on one or more nodes" },
+    { "name": "reorder_nodes", "description": "Change z-order: bringToFront, sendToBack, bringForward, sendBackward" },
+    { "name": "set_blend_mode", "description": "Set blend mode (MULTIPLY, SCREEN, OVERLAY, and more) on one or more nodes" },
+    { "name": "set_constraints", "description": "Set responsive constraints { horizontal, vertical } on one or more nodes" },
+    { "name": "reparent_nodes", "description": "Move nodes to a different parent frame, group, or section" },
+    { "name": "batch_rename_nodes", "description": "Bulk rename nodes via find/replace, regex, or prefix/suffix" },
+    { "name": "find_replace_text", "description": "Find and replace text across all TEXT nodes in a subtree or page; supports regex" },
+    { "name": "set_effects", "description": "Apply drop shadow / blur effects directly on a node (no style required)" },
+    { "name": "add_page", "description": "Add a new page to the document (optional name and index)" },
+    { "name": "delete_page", "description": "Delete a page by ID or name (cannot delete the only page)" },
+    { "name": "rename_page", "description": "Rename a page by ID or current name" }
   ]
 }

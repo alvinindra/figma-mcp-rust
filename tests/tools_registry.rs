@@ -1,7 +1,7 @@
 //! Sanity tests on the tool registry.
 
 use figma_mcp_rust::tools;
-use std::collections::HashSet;
+use std::collections::{BTreeSet, HashSet};
 
 #[test]
 fn registers_at_least_73_tools() {
@@ -15,6 +15,22 @@ fn tool_names_are_unique() {
     for def in tools::all() {
         assert!(seen.insert(def.name), "duplicate tool name: {}", def.name);
     }
+}
+
+/// glama.json carries a hand-written tool list for the Glama directory, which
+/// went stale as tools were added.
+#[test]
+fn glama_manifest_lists_every_tool() {
+    let manifest: serde_json::Value =
+        serde_json::from_str(include_str!("../glama.json")).expect("glama.json is valid JSON");
+    let listed: BTreeSet<&str> = manifest["tools"]
+        .as_array()
+        .expect("glama.json has a tools array")
+        .iter()
+        .filter_map(|tool| tool["name"].as_str())
+        .collect();
+    let registered: BTreeSet<&str> = tools::all().iter().map(|def| def.name).collect();
+    assert_eq!(listed, registered);
 }
 
 #[test]
