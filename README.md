@@ -230,6 +230,22 @@ Leave out the `type` field, because Antigravity rejects it. If the tools don't s
 | `scan_nodes_by_types` | Nodes matching given type list |
 | `get_viewport` | Current viewport center, zoom, and visible bounds |
 
+Serialized nodes carry `id`, `name`, `type`, `bounds` and `styles`, plus these fields when a node departs from the Figma defaults:
+
+- `fillsFull` / `strokesFull`: gradient, image and video paints, which `styles.fills` / `styles.strokes` (solid hex only) leave out; `stroke` for weight, align and dash pattern
+- `visible`, `opacity`, `blendMode`, `rotation`, `isMask` / `maskType`, `clipsContent`
+- `cornerRadii`, `cornerSmoothing`, `layout` (auto-layout), `sizing`, `absolute`, `constraints`
+- `text` (auto-resize, vertical align, case, truncation, paragraph spacing) and `textSegments` for text with mixed styling
+- `motion`: [Motion](https://developers.figma.com/docs/plugins/api/Motion/) `manualKeyframeTracks`, `animations` and `animationStyles`, with the `timelines` they play on
+
+Serialized nodes carry `id`, `name`, `type`, `bounds` and `styles`, plus these fields when a node departs from Figma's defaults:
+
+- `fillsFull` / `strokesFull`: gradient, image and video paints, which `styles.fills` / `styles.strokes` (solid hex only) leave out; `stroke` for weight, align and dash pattern
+- `visible`, `opacity`, `blendMode`, `rotation`, `isMask` / `maskType`, `clipsContent`
+- `cornerRadii`, `cornerSmoothing`, `layout` (auto-layout), `sizing`, `absolute`, `constraints`
+- `text` (auto-resize, vertical align, case, truncation, paragraph spacing) and `textSegments` for text with mixed styling
+- `motion`: [Motion](https://developers.figma.com/docs/plugins/api/Motion/) `manualKeyframeTracks`, `animations` and `animationStyles`, with the `timelines` they play on
+
 ### Read: Styles & Variables
 
 | Tool | Description |
